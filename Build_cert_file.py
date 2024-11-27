@@ -21,20 +21,6 @@ def eliminar_hoja_transformada(excel_path, sheet_name):
     except Exception as e:
         print(f"Ocurrió un error: {e}")
 
-# Función para formatear fechas y guardarlas en una hoja de trabajo
-def formatDate(excel_path, sheet_name):
-    # Leer solo la columna B
-    df = pd.read_excel(excel_path, usecols='B', names=['Fecha'])
-    # Convertir columna a formato de fecha y aplicar formato MM/DD/YYYY
-    df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce', dayfirst=True).dt.strftime('%m/%d/%Y')
-
-    # Guardar la hoja de trabajo actualizada con las fechas formateadas en columna E
-    try:
-        with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-            df.to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=4, index=False)
-    except Exception as e:
-        print(f"Error al escribir en la hoja: {e}")
-
 # Función para cruzar información del proveedor entre archivos y obtener "Vendor" para cada "Estación"
 def get_vendor(excel_path, aux_path, sheet_name):
     # Cargar los datos principales y auxiliares
@@ -52,6 +38,20 @@ def get_vendor(excel_path, aux_path, sheet_name):
     # Guardar la hoja con los datos cruzados
     with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
         df_extract.to_excel(writer, sheet_name=sheet_name, index=False)
+
+# Función para formatear fechas y guardarlas en una hoja de trabajo
+def formatDate(excel_path, sheet_name):
+    # Leer solo la columna B
+    df = pd.read_excel(excel_path, usecols='B', names=['Fecha'])
+    # Convertir columna a formato de fecha y aplicar formato MM/DD/YYYY
+    df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce', dayfirst=True).dt.strftime('%m/%d/%Y')
+
+    # Guardar la hoja de trabajo actualizada con las fechas formateadas en columna E
+    try:
+        with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+            df.to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=4, index=False)
+    except Exception as e:
+        print(f"Error al escribir en la hoja: {e}")
 
 # Función para formatear hora al formato de 24 horas (HH:MM:SS)
 def format_hour_column(excel_path, sheet_name):
@@ -73,7 +73,7 @@ def fill_spot_info(excel_path, sheet_name):
     df['Cantidad'] = 1
     df['Type Spot'] = 'Paid'
 
-    # Guardar las columnas nuevas en la hoja transformada
+    # Guardar las columnas nuevas en la hoja transformada en la columna H y I
     with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
         df[['Cantidad', 'Type Spot']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=7, index=False)
 
@@ -90,19 +90,20 @@ def get_creatives_data(excel_path, aux_path, sheet_name):
         match, score = process.extractOne(value, choices_df['Creativo'].tolist())
         if score >= threshold:
             row = choices_df[choices_df['Creativo'] == match]
-            return pd.Series([match, row['Duration'].values[0], row['Brand'].values[0]])
-        return pd.Series([None, None, None])
+            return pd.Series([match, row['Duration'].values[0], row['Brand'].values[0], 'Found'])
+        return pd.Series([value, None, None, 'Not Found'])
 
     # Aplicar coincidencias aproximadas en la columna "Versión"
-    df_main[['Creativo', 'Duracion', 'Brand']] = df_main['Versión'].apply(
+    df_main[['Creativo', 'Duracion', 'Brand', 'Estado']] = df_main['Versión'].apply(
         lambda x: get_best_match_info(x, df_aux, threshold)
     )
 
-    # Guardar las columnas de resultados en las columnas G, J y K
+    # Guardar las columnas de resultados en las columnas G, J, K y L
     with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
         df_main[['Duracion']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=6, index=False)
         df_main[['Creativo']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=9, index=False)
-        df_main[['Brand']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=10, index=False)
+        df_main[['Estado']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=10, index=False)
+        df_main[['Brand']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=11, index=False)
 
 # Función para generar el certificado final con todas las transformaciones aplicadas
 def generar_certificado_final(aux_path, excel_path):

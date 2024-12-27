@@ -31,6 +31,13 @@ def organizar_por_canal_y_fecha(df):
     return df
 
 def split_repeated_spots(df):
+    
+     # Asegurarse de que 'Spots' es numérico
+    df['Spots'] = pd.to_numeric(df['Spots'], errors='coerce')
+    
+    # Eliminar filas donde 'Spots' no es un número válido (NaN)
+    df = df.dropna(subset=['Spots'])
+
     # Lista para almacenar las nuevas filas
     nuevos_registros = []
     
@@ -54,40 +61,46 @@ def split_repeated_spots(df):
 
     return df
 
-def process_and_filter_data(bdd_path, aux_path, start_date, end_date, Month_dict):
+def process_and_filter_data(full_bdd_path, aux_path, base_file , filtered_bdd_file, start_date, end_date):
     """
     Procesa los datos en el archivo bdd_path, filtra por VEN=1, agrega columnas 'Date Time Zone' y 'Date Full Day',
     organiza los datos, y guarda el resultado en un nuevo archivo Excel.
     """
-
-    # Cargar datos de la hoja 'BDD Final'
-    df_bdd = pd.read_excel(bdd_path, sheet_name='BDD Final', skiprows=1)  # Saltar a partir de la fila 2
+    df = pd.read_excel(base_file, sheet_name='Convertido y procesado')  # Saltar a partir de la fila 2
+    
+    unique_feed_index = df['Feed Index'].dropna().unique()
+    
+    df_bdd = pd.read_excel(full_bdd_path, sheet_name='BDD Final', skiprows=1, dtype=str)  # Saltar a partir de la fila 2
 
     # Limpiar encabezados de columnas
     df_bdd.columns = df_bdd.columns.str.strip()
 
-    # Filtrar por registros donde VEN = 1
-    df_bdd = df_bdd[df_bdd['VEN'] == 1]
+    df_bdd = df_bdd[df_bdd['Feed Index'].isin(unique_feed_index)]
 
     #Convert string date input with format MM/DD/YYYY into date type in format MM/DD/YYYY
     start_date = datetime.strptime(start_date, '%m/%d/%Y')
     end_date = datetime.strptime(end_date, '%m/%d/%Y')
 
     # Convertir 'Date' a formato datetime para la comparación
-    df_bdd['Date'] = pd.to_datetime(df_bdd['Date'], format='%m/%d/%y')
-    
+    df_bdd['Date'] = pd.to_datetime(df_bdd['Date'], format='%Y-%m-%d %H:%M:%S')
+
     # Filtrar por registros desde la fecha inicial hasta la fecha final
     df_bdd = df_bdd[(df_bdd['Date'] >= start_date) & (df_bdd['Date'] <= end_date)]
 
     # Convertir 'Date' a formato MM/DD/YY sin la hora y 'Hour' a cadena
     df_bdd['Date'] = pd.to_datetime(df_bdd['Date'], format='%B %d %Y').dt.strftime('%m/%d/%y')
     df_bdd['Hour'] = df_bdd['Hour'].astype(str)
+    
 
     # Agregar columnas adicionales, ajustar spots multiples y organizar datos
     df_bdd = crear_columna_date_time_zone(df_bdd)
+ 
     df_bdd = crear_columna_date_full_day(df_bdd)
+
     df_bdd = split_repeated_spots(df_bdd)
+
     df_bdd = organizar_por_canal_y_fecha(df_bdd)
+
 
     # Seleccionar columnas requeridas desde la hoja Index Tablas de aux_path columna Monitoring_db_Index
     df_index = pd.read_excel(aux_path, sheet_name='Index Tablas')
@@ -96,14 +109,7 @@ def process_and_filter_data(bdd_path, aux_path, start_date, end_date, Month_dict
     
     df_bdd_filtrado = df_bdd[columnas_requeridas]
 
-    # Guardar el archivo en un nuevo Excel en la carpeta raíz
-    # Generar archivo Excel bajo el nombre ‘BDD Pauta MMM Dd to DD YYYY’ en formato .xlsx
+    
 
-    start_date = start_date.strftime('%B %d')
-    end_date = end_date.strftime('%d %Y')
-    end_day = end_date.split()[0]
-    year = end_date.split()[1]
-    output_path = f'BDD Pauta {start_date} to {end_day} {year}.xlsx'
-
-    df_bdd_filtrado.to_excel(output_path, index=False)
-    print(f"Archivo guardado en {output_path}")
+    df_bdd_filtrado.to_excel(filtered_bdd_file, index=False)
+    print(f"Archivo guardado en: {filtered_bdd_file}")

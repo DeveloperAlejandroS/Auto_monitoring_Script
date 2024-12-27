@@ -20,7 +20,7 @@ def apply_transformations_to_excel_file(excel_path):
     Finalmente, guarda el archivo Excel con todos los cambios aplicados.
     """
     # Cargar el archivo Excel y seleccionar la primera hoja
-    wb = load_excel_workbook(excel_path)
+    wb = load_workbook(excel_path)
     ws = wb.active
 
     # Aplicar las funciones de transformación
@@ -38,13 +38,13 @@ def apply_transformations_to_excel_file(excel_path):
 
     print("Formateando fechas")
     format_date_column(excel_path)
-
+    
     # Guardar el archivo con los cambios
     wb.save(excel_path)
+    wb.close()
 
-def load_excel_workbook(file_name):
-    """Carga el archivo de Excel especificado por file_name."""
-    return openpyxl.load_workbook(file_name)
+
+#===============LOGIC BETWEEN TRANFORMATION===============#
 
 def replace_unicode_character(ws):
     """Reemplaza el carácter Unicode U+00A0 por celdas vacías en toda la hoja de trabajo."""
@@ -95,29 +95,34 @@ def delete_count_rows(ws):
         ws.delete_rows(row)
 
 def format_date_column(excel_path):
-    """
-    Formatea las fechas en el archivo Excel especificado para que tengan el formato MM/DD/YYYY.
-    Las fechas se extraen de la columna 'B' del archivo y se escriben en la columna 'F'.
-    """
+
     sheet_name = 'Archivo Final Play Logger'
 
-    # Cargar la columna de fechas ('B') desde el archivo Excel
-    df = pd.read_excel(excel_path, usecols='B', names=['Fecha'])
-
+    try:
+        df = pd.read_excel(excel_path, usecols='B', names=['Fecha'])
+    except Exception as e:
+        print(f"Error al leer el archivo Excel: {e}")
+        return
+    
     # Convertir fechas al formato MM/DD/YYYY
-    df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce', dayfirst=True).dt.strftime('%m/%d/%Y')
+    df['Fecha'] = pd.to_datetime(df['Fecha'], format='%d/%m/%Y', errors='coerce').dt.strftime('%m/%d/%Y')
 
-    # Cargar el archivo y verificar la existencia de la hoja 'Archivo Final Play Logger'
+    # Cargar el archivo Excel y verificar la existencia de la hoja
     wb = load_workbook(excel_path)
     if sheet_name not in wb.sheetnames:
         wb.create_sheet(title=sheet_name)
+        print(f"Hoja '{sheet_name}' creada.")
     ws = wb[sheet_name]
 
     # Escribir las fechas formateadas en la columna 'F'
-    for idx, date_value in enumerate(df['Fecha'], start=1):
+    for idx, date_value in enumerate(df['Fecha'].fillna('Fecha Inválida'), start=1):
         ws.cell(row=idx, column=6, value=date_value)  # Columna 6 corresponde a 'F'
-    
+
     # Guardar el archivo
-    wb.save(excel_path)
-    wb.close()
-    print(f'Archivo guardado correctamente en {excel_path}')
+    try:
+        wb.save(excel_path)
+        print(f"Archivo guardado correctamente en {excel_path}")
+    except Exception as e:
+        print(f"Error al guardar el archivo Excel: {e}")
+    finally:
+        wb.close()

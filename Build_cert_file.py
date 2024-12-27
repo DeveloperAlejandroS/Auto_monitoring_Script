@@ -6,21 +6,6 @@ from datetime import datetime
 import pytz
 from timezonefinder import TimezoneFinder
 
-# Función para eliminar la hoja "Hoja_Transformada" si ya existe, esto como parte de la limpieza previa para itegridad de datos
-def eliminar_hoja_transformada(excel_path, sheet_name):
-    try:
-        workbook = load_workbook(excel_path)  # Cargar el archivo de Excel
-        if sheet_name in workbook.sheetnames:  # Verificar si la hoja existe
-            workbook.remove(workbook[sheet_name])  # Eliminar la hoja
-            workbook.save(excel_path)  # Guardar el archivo actualizado
-            print(f"La hoja '{sheet_name}' ha sido eliminada con éxito.")
-        else:
-            print(f"La hoja '{sheet_name}' no existe en el archivo.")
-    except FileNotFoundError:
-        print(f"El archivo '{excel_path}' no fue encontrado.")
-    except Exception as e:
-        print(f"Ocurrió un error: {e}")
-
 # Función para cruzar información del proveedor entre archivos y obtener "Vendor" para cada "Estación"
 def get_vendor(excel_path, aux_path, sheet_name):
     # Cargar los datos principales y auxiliares
@@ -83,7 +68,7 @@ def get_creatives_data(excel_path, aux_path, sheet_name):
     aux_sheet_name = 'Month_Rotation'
     df_main = pd.read_excel(excel_path)
     df_aux = pd.read_excel(aux_path, sheet_name=aux_sheet_name)
-    threshold = 90  # Umbral de coincidencia, 90% de similitud
+    threshold = 91  # Umbral de coincidencia, 92% de similitud
 
     # Función para obtener coincidencias parciales y asociar duración y marca
     def get_best_match_info(value, choices_df, threshold):
@@ -106,12 +91,11 @@ def get_creatives_data(excel_path, aux_path, sheet_name):
         df_main[['Brand']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=11, index=False)
 
 # Función para generar el certificado final con todas las transformaciones aplicadas
-def generar_certificado_final(aux_path, excel_path):
+def generar_certificado_final(aux_path, excel_path, final_path):
 
     #HOJAS EXCEL
     sheet_name='Archivo Final Play Logger'
 
-    eliminar_hoja_transformada(excel_path, sheet_name)
     get_vendor(excel_path, aux_path, sheet_name)
     formatDate(excel_path, sheet_name)
     format_hour_column(excel_path, sheet_name)

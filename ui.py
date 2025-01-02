@@ -15,20 +15,19 @@ import shutil
 
 # Diccionario de meses
 Month_dict = {
-    "Enero": "January",
-    "Febrero": "February",
-    "Marzo": "March",
-    "Abril": "April",
-    "Mayo": "May",
-    "Junio": "June",
-    "Julio": "July",
-    "Agosto": "August",
-    "Septiembre": "September",
-    "Octubre": "October",
-    "Noviembre": "November",
-    "Diciembre": "December"
+    "January": "Enero",
+    "February": "Febrero",
+    "March": "Marzo",
+    "April": "Abril",
+    "May": "Mayo",
+    "June": "Junio",
+    "July": "Julio",
+    "August": "Agosto",
+    "September": "Septiembre",
+    "October": "Octubre",
+    "November": "Noviembre",
+    "December": "Diciembre"
 }
-
 
 excel_path = ''
 bdd_filtered_path = ''
@@ -74,8 +73,8 @@ def createFolders(start_date, end_date):
     end_date = datetime.strptime(end_date, "%m/%d/%Y")
     
     #Crear la carpeta de recursos
-    resources_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {start_date.strftime('%B')}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}/Recursos"
-    final_rev_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {start_date.strftime('%B')}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}"
+    resources_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {Month_dict[start_date.strftime('%B')]}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}/Recursos"
+    final_rev_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {Month_dict[start_date.strftime('%B')]}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}"
     
     if not os.path.exists(resources_path):
         os.makedirs(resources_path, exist_ok=True)
@@ -140,7 +139,8 @@ def generate_required_files():
             full_revision(final_file, filtered_bdd_file, start_date, end_date, sheet_name)
             
             #Open final folder
-            os.startfile(final_rev_path) 
+            os.startfile(final_rev_path)
+            os.startfile(final_file)
 
 #---------------------------------#
 app = CTk()
@@ -228,8 +228,6 @@ process_button = CTkButton(
     height=50, 
     command=generate_required_files
 )
-
-
 
 title_label.pack(anchor="n", pady=5, padx=10)
 start_date_label.pack(anchor="s", pady=5, padx=10)

@@ -64,26 +64,44 @@ def fill_spot_info(excel_path, sheet_name):
 
 # Función para obtener datos creativos de una lista auxiliar basándose en coincidencias aproximadas
 def get_creatives_data(excel_path, aux_path, sheet_name):
-
     aux_sheet_name = 'Month_Rotation'
     df_main = pd.read_excel(excel_path)
     df_aux = pd.read_excel(aux_path, sheet_name=aux_sheet_name)
-    threshold = 91  # Umbral de coincidencia, 92% de similitud
+    threshold = 91  # Similarity threshold (91%)
 
-    # Función para obtener coincidencias parciales y asociar duración y marca
-    def get_best_match_info(value, choices_df, threshold):
-        match, score = process.extractOne(value, choices_df['Creativo'].tolist())
+    # Create a dictionary mapping lowercase to original case-sensitive values
+    original_mapping = {row['Creativo'].lower(): row['Creativo'] for _, row in df_aux.iterrows()}
+
+    # Clean the "Versión" column in the main DataFrame
+    df_main['Versión'] = df_main['Versión'].replace(r'\(20s\)', '', regex=True)
+    
+    # Convert the auxiliary DataFrame to lowercase for comparison
+    df_aux_lower = df_aux.copy()
+    df_aux_lower['Creativo'] = df_aux['Creativo'].str.lower()
+
+    # Function to perform fuzzy matching
+    def get_best_match_info(value, choices_lower, original_mapping, threshold):
+        match, score = process.extractOne(value, choices_lower['Creativo'].tolist())
         if score >= threshold:
-            row = choices_df[choices_df['Creativo'] == match]
-            return pd.Series([match, row['Duration'].values[0], row['Brand'].values[0], 'Found'])
+            # Retrieve the original value using the dictionary
+            original_creativo = original_mapping.get(match, match)
+            row_original = choices_lower[choices_lower['Creativo'] == match]
+            
+            print(f"Matched: {value} with -> {match} (Score: {score})")
+            return pd.Series([
+                original_creativo,  # Original case-sensitive value
+                row_original['Duration'].values[0],
+                row_original['Brand'].values[0],
+                'Found'
+            ])
         return pd.Series([value, None, None, 'Not Found'])
 
-    # Aplicar coincidencias aproximadas en la columna "Versión"
+    # Apply the fuzzy matching to the "Versión" column
     df_main[['Creativo', 'Duracion', 'Brand', 'Estado']] = df_main['Versión'].apply(
-        lambda x: get_best_match_info(x, df_aux, threshold)
+        lambda x: get_best_match_info(x, df_aux_lower, original_mapping, threshold)
     )
 
-    # Guardar las columnas de resultados en las columnas G, J, K y L
+    # Save the results back to the Excel file
     with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
         df_main[['Duracion']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=6, index=False)
         df_main[['Creativo']].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=9, index=False)

@@ -18,16 +18,10 @@ def delete_outdated_rows(final_path, start_date, end_date, sheet_name):
     end_date = pd.to_datetime(end_date).date()
 
     # Filtrar filas dentro del rango de fechas
-    initial_row_count = len(df)
     df = df[(df['aux_date'] >= start_date) & (df['aux_date'] <= end_date)]
-    final_row_count = len(df)
 
     # Eliminar la columna auxiliar
     df.drop(columns=['aux_date'], inplace=True)
-
-    # Mensaje de log con la cantidad de filas eliminadas
-    rows_deleted = initial_row_count - final_row_count
-    print(f"Deleted {rows_deleted} outdated rows.")
     
     df['Date Time Zone'] = pd.to_datetime(df['Date Time Zone']).dt.strftime('%m/%d/%Y %H:%M:%S')
 
@@ -90,7 +84,6 @@ def b2bV2(final_path, sheet_name):
     with pd.ExcelWriter(final_path, mode='a', engine='openpyxl', if_sheet_exists='overlay') as writer:
         df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-    print('Back to back revision completed')
         
 def back_to_back_rev(final_path, sheet_name):
     df = pd.read_excel(final_path, sheet_name=sheet_name)
@@ -257,6 +250,7 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
     ws = wb.create_sheet(title=sn)
     
     df_bdd['Date Time Zone']= df_bdd['Date Time Zone'].dt.strftime('%m/%d/%Y %H:%M:%S')
+    df['Date Time Zone'] = df['Date Time Zone'].dt.strftime('%m/%d/%Y %H:%M:%S')
     
     with pd.ExcelWriter(final_path, mode='a', engine='openpyxl', if_sheet_exists='overlay') as writer:
         df.to_excel(writer, sheet_name=sheet_name, index=False)
@@ -265,12 +259,13 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
 def full_revision(final_path, filtered_bdd_path, start_date, end_date, sheet_name):
     
     start_time = time.time()
-    print('Starting full revision')
+
     delete_outdated_rows(final_path, start_date, end_date, sheet_name)
     print('Starting back to back revision')
     b2bV2(final_path, sheet_name)
+    print('Back to back revision completed')
     print('Starting Spot revision')
     rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name)
-    print('Full revision completed')
+    print('Spot revision completed')
     final_time = time.time() - start_time
     print(f'Time elapsed: {final_time} seconds')

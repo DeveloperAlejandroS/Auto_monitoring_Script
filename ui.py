@@ -9,9 +9,10 @@ from gen_additional_columns import fetch_additional_columns
 from revision_step import full_revision
 from tkinter import filedialog
 import shutil
+import time
+# from reporting_file import main_reporting
 
 #---------------------------------#
-
 
 # Diccionario de meses
 Month_dict = {
@@ -65,8 +66,8 @@ def build_file_name(start_date, end_date):
     final_playlogger_file_name = f'Archivo Final Play Logger {start_date} to {end_day} {year}.xlsx'
     filtered_bdd_file_name = f'BDD Pauta {start_date} to {end_day} {year}.xlsx'
     full_bdd_path = f'G:/Unidades compartidas/Marketing Team/Offline Marketing/04. Operations/05. Orders BDD/Año {year}/{month_index}-{month_name}/01. Orders BDD/BDD {month_name} {year} v1.xlsm'
-
-    return raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, full_bdd_path
+    final_report_file_name = f'Reporte Final {start_date} to {end_day} {year}.xlsx'
+    return raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, full_bdd_path, final_report_file_name
 
 def createFolders(start_date, end_date):
     start_date = datetime.strptime(start_date, "%m/%d/%Y")
@@ -83,12 +84,13 @@ def createFolders(start_date, end_date):
     
     return resources_path, final_rev_path
 
-def gen_full_file_path(raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, resources_path, final_rev_path):
+def gen_full_file_path(raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, resources_path, final_rev_path, final_report_file_name):
     base_file = f'{resources_path}/{raw_playlogger_file_name}'
     final_file = f'{final_rev_path}/{final_playlogger_file_name}'
     filtered_bdd_file = f'{resources_path}/{filtered_bdd_file_name}'
+    final_report_file = f'{final_rev_path}/{final_report_file_name}'
     
-    return base_file, final_file, filtered_bdd_file
+    return base_file, final_file, filtered_bdd_file, final_report_file
     
 
 def generate_required_files():
@@ -96,18 +98,21 @@ def generate_required_files():
     start_date, end_date = Get_dates()
     
     # Generar los nombres de archivo
-    raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, full_bdd_path = build_file_name(start_date, end_date)
+    raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, full_bdd_path, final_report_file_name = build_file_name(start_date, end_date)
     
     resources_path, final_rev_path = createFolders(start_date, end_date)
     
     #Geenrar losa rchivos enrutados
-    base_file, final_file, filtered_bdd_file = gen_full_file_path(raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, resources_path, final_rev_path)
+    base_file, final_file, filtered_bdd_file, final_report_file = gen_full_file_path(raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, resources_path, final_rev_path, final_report_file_name)
+    
+    sheet_name = 'Archivo Final Play Logger'
     
     #Imprimir todas las rutas para verificar
     print(base_file)
     print(final_file)
     print(filtered_bdd_file)
     print(full_bdd_path)
+    print(final_report_file)
     
     #Open file from location and move it to the resources folder
     excel_path = filedialog.askopenfilename()
@@ -123,25 +128,83 @@ def generate_required_files():
         print(f"Excel file does not exist: {base_file}")
         return
     else:
-        sheet_name = 'Archivo Final Play Logger'
         if not os.path.exists(base_file):
             print(f"Excel file does not exist: {base_file}")
             return
         else:
-            # Aplicar transformaciones y generar certificados
+            start_time = time.time()
+            # mostrar texto d einiciando proceso en el campo de texto
+            progress_text_field.configure(state="normal")
+            progress_text_field.delete(1.0, "end")
+            progress_text_field.insert(1.0, "Iniciando proceso...\n")
+            progress_text_field.configure(state="disabled")
+            
+            #Decir en el campo de texto que se esta aplicando la transformacion de la data incial
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Aplicando transformaciones a la data inicial...\n")
+            progress_text_field.configure(state="disabled")
+            
             apply_transformations_to_excel_file(base_file)
+            
+            #Decir en el campo de texto que se esta generando el certificado final
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Generando certificado final...\n")
+            progress_text_field.configure(state="disabled")
+            
             generar_certificado_final(aux_path, base_file, final_file)
+            
+            time.sleep(3)
+            #Decir en el campo de texto que se estan generando las columnas adicionales para la revisión
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Generando columnas adicionales para la revisión...\n")
+            progress_text_field.configure(state="disabled")
+            
             fetch_additional_columns(base_file, aux_path, final_file, sheet_name)
             
-            # Filtrar los datos BDD
+            #Decir en el campo de texto que se esta procesando y filtrando la base de datos
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Procesando y filtrando la base de datos...\n")
+            progress_text_field.configure(state="disabled")
+            
             process_and_filter_data(full_bdd_path, aux_path, base_file , filtered_bdd_file, start_date, end_date)
             
-            full_revision(final_file, filtered_bdd_file, start_date, end_date, sheet_name)
+            #Decir en el campo de texto que se esta realizando la revisión completa
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Realizando revisión de spots...\n")
+            progress_text_field.configure(state="disabled")
             
-            #Open final folder
+            full_revision(final_file, filtered_bdd_file, aux_path, start_date, end_date, sheet_name)
+            
+            #Decir en el campo de texto que se ha finalizado el proceso
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Proceso finalizado\n")
+            progress_text_field.configure(state="disabled")
+            
+            #decir en el campo de texto que se han generado los archivos y abrirlos
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Archivos generados, abriendo...\n")
+            progress_text_field.configure(state="disabled")
             os.startfile(final_rev_path)
             os.startfile(final_file)
+            
+            
+            #Decir en el campo de texto que el proceso tardó x segundos
+            final_time = time.time() - start_time
+            print(f'Time elapsed: {final_time} seconds')
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", f"Proceso finalizado en {final_time} segundos\n")
+            progress_text_field.configure(state="disabled")
 
+            #Decir en el campo de texto que se ha finalizado el proceso
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Proceso finalizado\n")
+            progress_text_field.configure(state="disabled")
+            
+            #Decir en el campo de texto que se iniciara el proceso de reporting
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", "Iniciando proceso de reporting...\n")
+            progress_text_field.configure(state="disabled")
+            
 #---------------------------------#
 app = CTk()
 app.title("Auto-Monitoria v1")

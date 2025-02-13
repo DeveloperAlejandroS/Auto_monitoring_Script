@@ -105,7 +105,7 @@ def process_and_filter_data(full_bdd_path, aux_path, base_file , filtered_bdd_fi
     # Seleccionar columnas requeridas desde la hoja Index Tablas de aux_path columna Monitoring_db_Index
     df_index = pd.read_excel(aux_path, sheet_name='Index Tablas')
     #Extraer columna Monitoring_db_Index y convertir a lista
-    columnas_requeridas = df_index['Monitoring_db_Index'].tolist()
+    columnas_requeridas = df_index['Monitoring_db_Index'].dropna().tolist()
     
     df_bdd_filtrado = df_bdd[columnas_requeridas]
 

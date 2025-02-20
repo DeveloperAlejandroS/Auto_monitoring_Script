@@ -173,6 +173,7 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
     df['Rev vs pauta'] = ''
     df['Spot Observation'] = ''
     df['Fecha Final Revision'] = ''
+    df['Rate'] = ''
     
     # Asegurarse de que las fechas están en formato datetime
     df_bdd['Date Time Zone'] = pd.to_datetime(df_bdd['Date Time Zone'], format='%m/%d/%Y %H:%M:%S')
@@ -196,24 +197,28 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                     current_equal_date = pd.to_datetime(row['Date Time Zone = Minutes'], errors='coerce')
                     current_plus_date = pd.to_datetime(row['Date Time Zone + Minutes'], errors='coerce')
                     comparer_date = pd.to_datetime(row2['Date Time Zone'], errors='coerce')
+                    current_rate = row2['Rate']
                     
                     if current_minus_date == comparer_date:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_minus_date.strftime("%m/%d/%Y %H:%M:%S")}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = current_rate
                         break
                     if current_equal_date == comparer_date:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_equal_date.strftime("%m/%d/%Y %H:%M:%S")}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = row2['Rate']
                         break
                     if current_plus_date == comparer_date:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_plus_date.strftime("%m/%d/%Y %H:%M:%S")}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = row2['Rate']
                         break
                 elif row['Revision type'] == 2:
                     # Procesamiento para "Revision type" 2
@@ -227,12 +232,14 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                     
                     comparer_date_full_day = pd.to_datetime(row2['Date Full Day'], errors='coerce')
                     comparer_day_part = row2['Franja'].strip().lower()
+                    current_rate = row2['Rate']
                     
                     if current_minus_dp == comparer_day_part and current_minus_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_minus_dp}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = current_rate
                         break
                     
                     if current_equal_dp == comparer_day_part and current_equal_full_day == comparer_date_full_day:
@@ -240,12 +247,14 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                         df.at[idx, 'Fecha Final Revision'] = f'{current_equal_dp}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = current_rate
                         break
                     if current_plus_dp == comparer_day_part and current_plus_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_plus_dp}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = current_rate
                         break
 
                 elif row['Revision type'] == 3:
@@ -254,24 +263,28 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                     current_equal_full_day = pd.to_datetime(row['Full Day = Minutes'], format='%m/%d/%Y %H:%M')
                     current_plus_full_day = pd.to_datetime(row['Full Day + Minutes'], format='%m/%d/%Y %H:%M')
                     comparer_date_full_day = pd.to_datetime(row2['Date Full Day'], errors='coerce')
+                    current_rate = row2['Rate']
                     
                     if current_minus_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_minus_full_day.strftime("%m/%d/%Y %H:%M")}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = current_rate
                         break
                     elif current_equal_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_equal_full_day.strftime("%m/%d/%Y %H:%M")}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = current_rate
                         break
                     elif current_plus_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_plus_full_day.strftime("%m/%d/%Y %H:%M")}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
+                        df.at[idx, 'Rate'] = current_rate
                         break
     
     for idx, row in df.iterrows():
@@ -297,6 +310,7 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                         if comparer_date in [current_minus_date, current_equal_date, current_plus_date]:
                             df.at[idx, 'Rev vs pauta'] = 'No'
                             df.at[idx, 'Spot Observation'] = 'Spot Duplicado'
+                            df.at[idx, 'Rate'] = 0
                             
                             if comparer_date == current_minus_date:
                                 df.at[idx, 'Fecha Final Revision'] = f'{current_minus_date.strftime("%m/%d/%Y %H:%M:%S")}'
@@ -321,6 +335,7 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                             if comparer_day_part in [current_minus_dp, current_equal_dp, current_plus_dp]:
                                 df.at[idx, 'Rev vs pauta'] = 'No'
                                 df.at[idx, 'Spot Observation'] = 'Spot Duplicado'
+                                df.at[idx, 'Rate'] = 0
                                 
                                 if comparer_day_part == current_minus_dp:
                                     df.at[idx, 'Fecha Final Revision'] = f'{current_minus_dp}'
@@ -340,6 +355,7 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                         if comparer_date_full_day in [current_minus_full_day, current_equal_full_day, current_plus_full_day]:
                             df.at[idx, 'Rev vs pauta'] = 'No'
                             df.at[idx, 'Spot Observation'] = 'Spot Duplicado'
+                            df.at[idx, 'Rate'] = 0
                             
                             if comparer_date_full_day == current_minus_full_day:
                                 df.at[idx, 'Fecha Final Revision'] = f'{current_minus_full_day.strftime("%m/%d/%Y %H:%M")}'
@@ -354,6 +370,7 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
             df.at[idx, 'Rev vs pauta'] = 'No'
             df.at[idx, 'Fecha Final Revision'] = '-'
             df.at[idx, 'Spot Observation'] = 'Spot No solicitado'
+            df.at[idx, 'Rate'] = 0
             
             
     

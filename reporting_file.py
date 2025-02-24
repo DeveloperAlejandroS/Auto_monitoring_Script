@@ -77,7 +77,6 @@ def get_vendor_mapping():
 def generate_columns(final_report_file, report_resumen_array, report_details_array, rotation_report_array):
     print('Generando columnas de resumen con datos de reporte final')
     # Crear DataFrames vacíos con los encabezados requeridos
-    df_resumen = pd.DataFrame(columns=report_resumen_array)
     df_details = pd.DataFrame(columns=report_details_array)
     df_rotation = pd.DataFrame(columns=rotation_report_array)
     
@@ -113,15 +112,20 @@ def generate_columns(final_report_file, report_resumen_array, report_details_arr
                 if vendor in vendor_set:
                     vendor_name = vendor_mapping.get(vendor, vendor)
                     vendor_df = df_data[df_data['Vendor'] == vendor]
-                    resumen_list = create_resumen_list(vendor_df, BDD_file)
+                    resumen_list, details_list = create_resumen_list(vendor_df, BDD_file)
                     df_resumen = pd.DataFrame(resumen_list)
+                    df_details = pd.DataFrame(details_list)
+                    #Vaciar la columna que no se necesita
                     df_resumen.to_excel(writer, sheet_name=vendor_name, startrow=1, startcol=1, index=False)
+                    #añadir la columna de detalles desde la fila 2 columna u
+                    df_details.to_excel(writer, sheet_name=vendor_name, startrow=1, startcol=21, index=False)
                     
         print(f"Resumen guardado en {final_report_file}")
 
     def create_resumen_list(vendor_df, BDD_file):
         unique_feed_index_array = vendor_df['Feed Index'].dropna().unique()
         resumen_list = []
+        details_list = []
 
         for feed_index in unique_feed_index_array:
             sub_df = vendor_df[vendor_df['Feed Index'] == feed_index]
@@ -132,9 +136,20 @@ def generate_columns(final_report_file, report_resumen_array, report_details_arr
                 for duration in unique_duration_array:
                     feed_country_value = vendor_df.loc[vendor_df['Feed Index'] == feed_index, 'Feed'].dropna().unique()
                     feed_country = ', '.join(feed_country_value.astype(str))
-                    row = create_resumen_row(vendor_df, BDD_file, feed_index, brand, duration, feed_country)
-                    resumen_list.append(row)
-        return resumen_list
+                    sumary = create_resumen_row(vendor_df, BDD_file, feed_index, brand, duration, feed_country)
+                    resumen_list.append(sumary)
+        details = {
+            'SPOT DUPLICADO': len(vendor_df[(vendor_df['Spot Observation'] == 'Spot Duplicado')]),
+            'SPOT NO SOLICITADO': len(vendor_df[(vendor_df['Spot Observation'] == 'Spot No solicitado')]),
+            # 'SPOT CORRECTO': len(vendor_df[(vendor_df['Spot Observation'] == 'Spot Correcto')]),
+            'CREATIVO INCORRECTO': len(vendor_df[(vendor_df['Creative observation'] == 'Creativo Incorrecto')]),
+            'CREATIVO TRANSMITIDO INCORRECTAMENTE': len(vendor_df[(vendor_df['Creative observation'] == 'Creativo transmitido incorrectamente')]),
+            # 'CREATIVO CORRECTO': len(vendor_df[(vendor_df['Creative observation'] == 'Creativo Correcto')]),
+            'BACK TO BACK': len(vendor_df[(vendor_df['Back to back'] == 'Back to back')]),
+        }
+        
+        details_list.append(details)
+        return resumen_list, details_list
 
     def create_resumen_row(vendor_df, BDD_file, feed_index, brand, duration, feed_country):
         return {
@@ -153,13 +168,34 @@ def generate_columns(final_report_file, report_resumen_array, report_details_arr
             'SPOT PAID NOT RECOGNIZED': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Type Spot'] == 'Paid') & (vendor_df['Final Result'] == 'No')]),
             'SPOT BONUS NOT RECOGNIZED': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Type Spot'] == 'Bonus') & (vendor_df['Final Result'] == 'No')]),
             'SPEND LOCAL CURRENT': vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Final Result'] == 'Ok')]['Rate'].sum(),
-            'TYPE SPOT': 'Paid' if 'Paid' in vendor_df['Type Spot'].values else ('Cost Zero' if 'Cost Zero' in vendor_df['Type Spot'].values else 'Bonus'),
+            'TYPE SPOT': 'Paid' if 'Paid' in vendor_df['Type Spot'].values or 'Bonus' in vendor_df['Type Spot'].values else ('Cost Zero' if 'Cost Zero' in vendor_df['Type Spot'].values else 'Bonus'),
             'OBSERVATIONS': feed_country,
             'TOTAL SPEND DOLARIZED': vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Final Result'] == 'Ok')]['Rate'].sum(),
-        }
+
+            }
+        
+        # details = {
+        #     # 'SPOT DUPLICADO': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Spot Observation'] == 'Spot Duplicado')]),
+        #     # 'SPOT NO SOLICITADO': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Spot Observation'] == 'Spot No solicitado')]),
+        #     # 'SPOT CORRECTO': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Spot Observation'] == 'Spot Correcto')]),
+        #     # 'CREATIVO INCORRECTO': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Creative observation'] == 'Creativo Incorrecto')]),
+        #     # 'CREATIVO TRANSMITIDO INCORRECTAMENTE': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Creative observation'] == 'Creativo transmitido incorrectamente')]),
+        #     # 'CREATIVO CORRECTO': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Creative observation'] == 'Creativo Correcto')]),
+        #     # 'BACK TO BACK': len(vendor_df[(vendor_df['Feed Index'] == feed_index) & (vendor_df['Brand'] == brand) & (vendor_df['Back to back'] == 'Back to back')]),
+        #     # 'SPOT DUPLICADO': len(vendor_df[(vendor_df['Spot Observation'] == 'Spot Duplicado')]),
+        #     # 'SPOT NO SOLICITADO': len(vendor_df[(vendor_df['Spot Observation'] == 'Spot No solicitado')]),
+        #     # 'SPOT CORRECTO': len(vendor_df[(vendor_df['Spot Observation'] == 'Spot Correcto')]),
+        #     # 'CREATIVO INCORRECTO': len(vendor_df[(vendor_df['Creative observation'] == 'Creativo Incorrecto')]),
+        #     # 'CREATIVO TRANSMITIDO INCORRECTAMENTE': len(vendor_df[(vendor_df['Creative observation'] == 'Creativo transmitido incorrectamente')]),
+        #     # 'CREATIVO CORRECTO': len(vendor_df[(vendor_df['Creative observation'] == 'Creativo Correcto')]),
+        #     # 'BACK TO BACK': len(vendor_df[(vendor_df['Back to back'] == 'Back to back')]),
+        # }
     
     create_vendor_sheet(unique_vendor_array, final_report_file, vendor_mapping)
     generate_vendor_resume(unique_vendor_array, df_data, df_bdd, final_report_file, vendor_mapping)
+    
+    
+    
     
 def full_report(aux_path, final_path, final_report_file):
     

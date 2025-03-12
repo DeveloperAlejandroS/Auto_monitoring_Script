@@ -7,6 +7,7 @@ from fix_file_format import apply_transformations_to_excel_file
 from Build_cert_file import generar_certificado_final
 from gen_additional_columns import fetch_additional_columns
 from revision_step import full_revision
+from reporting_file import full_report
 from tkinter import filedialog
 import shutil
 import time
@@ -184,16 +185,9 @@ def generate_required_files():
             progress_text_field.configure(state="normal")
             progress_text_field.insert("end", "Archivos generados, abriendo...\n")
             progress_text_field.configure(state="disabled")
-            os.startfile(final_rev_path)
-            os.startfile(final_file)
             
             
-            #Decir en el campo de texto que el proceso tardó x segundos
-            final_time = time.time() - start_time
-            print(f'Time elapsed: {final_time} seconds')
-            progress_text_field.configure(state="normal")
-            progress_text_field.insert("end", f"Proceso finalizado en {final_time} segundos\n")
-            progress_text_field.configure(state="disabled")
+            
 
             #Decir en el campo de texto que se ha finalizado el proceso
             progress_text_field.configure(state="normal")
@@ -205,6 +199,17 @@ def generate_required_files():
             progress_text_field.insert("end", "Iniciando proceso de reporting...\n")
             progress_text_field.configure(state="disabled")
             
+            full_report(aux_path, final_file, final_report_file)
+            os.startfile(final_report_file)
+            os.startfile(final_rev_path)
+            os.startfile(final_file)
+            
+            #Decir en el campo de texto que el proceso tardó x segundos
+            final_time = time.time() - start_time
+            print(f'Time elapsed: {final_time} seconds')
+            progress_text_field.configure(state="normal")
+            progress_text_field.insert("end", f"Proceso finalizado en {final_time} segundos\n")
+            progress_text_field.configure(state="disabled")
 #---------------------------------#
 app = CTk()
 app.title("Auto-Monitoria v1")

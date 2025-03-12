@@ -385,6 +385,7 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
     ws = wb.create_sheet(title=sn)
     
     df_bdd['Date Time Zone']= df_bdd['Date Time Zone'].dt.strftime('%m/%d/%Y %H:%M:%S')
+    df['Date Time Zone'] = pd.to_datetime(df['Date Time Zone'], errors='coerce')
     df['Date Time Zone'] = df['Date Time Zone'].dt.strftime('%m/%d/%Y %H:%M:%S')
     
     with pd.ExcelWriter(final_path, mode='a', engine='openpyxl', if_sheet_exists='overlay') as writer:
@@ -403,6 +404,7 @@ def rev_creatives(aux_path, final_file):
     main_file['Rev Creativos'] = ''
     main_file['Creative observation'] = ''
     main_file['Id Rev % Ads'] = ''
+    main_file['Id Fecha Ads'] = ''
     
     #Convert columns to datetime with HH:MM:SS format
     aux_file['Start date'] = pd.to_datetime(aux_file['Start date'])
@@ -434,19 +436,23 @@ def rev_creatives(aux_path, final_file):
                         main_file.loc[idx, 'Rev Creativos'] = 'OK'
                         main_file.loc[idx, 'Creative observation'] = "Creativo Correcto"
                         main_file.loc[idx, 'Id Rev % Ads'] = aux_row['Id Rev % Ads']
+                        main_file.loc[idx, 'Id Fecha Ads'] = aux_row['Id Fecha Ads']
                         break
                     else:
                         main_file.loc[idx, 'Rev Creativos'] = 'NO'
                         main_file.loc[idx, 'Creative observation'] = 'Creativo transmitido incorrectamente'
                         main_file.loc[idx, 'Id Rev % Ads'] = ''
+                        main_file.loc[idx, 'Id Fecha Ads'] = ''
             else:
                 main_file.loc[idx, 'Rev Creativos'] = 'NO'
                 main_file.loc[idx, 'Creative observation'] = f"Creativo incorrecto"
                 main_file.loc[idx, 'Id Rev % Ads'] = ''
+                main_file.loc[idx, 'Id Fecha Ads'] = ''
         else:
             main_file.loc[idx, 'Rev Creativos'] = 'NO'
             main_file.loc[idx, 'Creative observation'] = 'Creativo incorrecto'
             main_file.loc[idx, 'Id Rev % Ads'] = ''
+            main_file.loc[idx, 'Id Fecha Ads'] = ''
 
     
     #Drop key columns in both files

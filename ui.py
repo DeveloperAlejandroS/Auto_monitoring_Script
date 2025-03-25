@@ -67,7 +67,7 @@ def build_file_name(start_date, end_date):
     final_playlogger_file_name = f'Archivo Final Play Logger {start_date} to {end_day} {year}.xlsx'
     filtered_bdd_file_name = f'BDD Pauta {start_date} to {end_day} {year}.xlsx'
     full_bdd_path = f'G:/Unidades compartidas/Marketing Team/Offline Marketing/04. Operations/05. Orders BDD/Año {year}/{month_index}-{month_name}/01. Orders BDD/BDD {month_name} {year} v1.xlsm'
-    final_report_file_name = f'Reporte Final {start_date} to {end_day} {year}.xlsx'
+    final_report_file_name = f'Reporte Final Monitoria {start_date} to {end_day} {year}.xlsx'
     return raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, full_bdd_path, final_report_file_name
 
 def createFolders(start_date, end_date):
@@ -107,13 +107,6 @@ def generate_required_files():
     base_file, final_file, filtered_bdd_file, final_report_file = gen_full_file_path(raw_playlogger_file_name, final_playlogger_file_name, filtered_bdd_file_name, resources_path, final_rev_path, final_report_file_name)
     
     sheet_name = 'Archivo Final Play Logger'
-    
-    #Imprimir todas las rutas para verificar
-    print(base_file)
-    print(final_file)
-    print(filtered_bdd_file)
-    print(full_bdd_path)
-    print(final_report_file)
     
     #Open file from location and move it to the resources folder
     excel_path = filedialog.askopenfilename()
@@ -186,9 +179,6 @@ def generate_required_files():
             progress_text_field.insert("end", "Archivos generados, abriendo...\n")
             progress_text_field.configure(state="disabled")
             
-            
-            
-
             #Decir en el campo de texto que se ha finalizado el proceso
             progress_text_field.configure(state="normal")
             progress_text_field.insert("end", "Proceso finalizado\n")

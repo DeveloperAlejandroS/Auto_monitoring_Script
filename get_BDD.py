@@ -109,7 +109,5 @@ def process_and_filter_data(full_bdd_path, aux_path, base_file , filtered_bdd_fi
     
     df_bdd_filtrado = df_bdd[columnas_requeridas]
 
-    
-
     df_bdd_filtrado.to_excel(filtered_bdd_file, index=False)
     print(f"Archivo guardado en: {filtered_bdd_file}")

@@ -161,7 +161,6 @@ def gen_DTZ_condition(excel_path, aux_path ,sheet_name):
         
         if current_date is not pd.NaT:
             minus_date = current_date - pd.Timedelta(current_condition, unit='m')
-            print(current_date, current_condition, minus_date)
             minus_hour = minus_date.time()
             minus_full_day = minus_date.replace(hour=0, minute=0, second=0)
             

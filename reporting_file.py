@@ -1,4 +1,6 @@
 import pandas as pd
+from openpyxl.styles import PatternFill, Font, Alignment, NamedStyle, Border, Side
+from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook
 import os
 
@@ -69,6 +71,64 @@ def get_vendor_mapping():
         }
     return vendor_mapping
 
+def apply_styles_to_sheet(workbook, sheet_name, table_positions):
+    """Aplica estilos a las tablas dentro de una hoja específica, según las posiciones dadas."""
+    ws = workbook[sheet_name]
+    
+    # Estilos para encabezados
+    resumen_fill = PatternFill(start_color="000000", end_color="000000", fill_type="solid")  # Fondo negro
+    resumen_font = Font(color="FFFFFF", bold=True)  # Texto blanco
+    detalles_fill = PatternFill(start_color="D35400", end_color="D35400", fill_type="solid")  # Fondo naranja oscuro
+    detalles_font = Font(color="FFFFFF", bold=True)  # Texto blanco
+
+    # Estilos para registros
+    registros_texto = Font(color="000000")  # Texto negro
+    registros_alineacion = Alignment(horizontal="center", vertical="center")  # Centrado
+    registros_fondo_blanco = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")  # Fondo blanco
+
+    # Formatos numéricos
+    numero_format = "#,##0.00"  # Formato con miles y 2 decimales
+    usd_format = '"$"#,##0.00'  # Formato de moneda USD
+
+    # Aplicar estilos a cada tabla en la hoja
+    for start_row, end_row in table_positions:
+        # Aplicar estilos al encabezado (Fila start_row, desde columna B hasta antes de U)
+        for col_num, cell in enumerate(ws[start_row], 1):  
+            col_letter = get_column_letter(col_num)
+            if "B" <= col_letter < "T":  
+                cell.fill = resumen_fill
+                cell.font = resumen_font
+
+        # Aplicar estilos al encabezado de Detalles (Fila start_row, desde columna U en adelante)
+        for col_num, cell in enumerate(ws[start_row], 1):  
+            col_letter = get_column_letter(col_num)
+            if col_letter >= "U":  
+                cell.fill = detalles_fill
+                cell.font = detalles_font
+
+        # Aplicar estilos a los registros de la tabla de Resumen
+        for row in ws.iter_rows(min_row=start_row + 1, max_row=end_row, min_col=2, max_col=19):
+            for cell in row:
+                cell.font = registros_texto
+                cell.fill = registros_fondo_blanco  # Fondo blanco
+
+        # Aplicar estilos a los registros de la tabla de Detalles
+        for row in ws.iter_rows(min_row=start_row + 1, max_row=end_row, min_col=21, max_col=ws.max_column):
+            for cell in row:
+                cell.font = registros_texto
+                cell.alignment = registros_alineacion
+                cell.fill = registros_fondo_blanco  # Fondo blanco
+
+        # Aplicar formato numérico y moneda solo en las columnas correspondientes
+        for row in ws.iter_rows(min_row=start_row + 1, max_row=end_row):
+            for cell in row:
+                if cell.value and isinstance(cell.value, (int, float)):
+                    col_letter = get_column_letter(cell.column)
+                    if col_letter == "P":  # P = Formato numérico con miles
+                        cell.number_format = numero_format
+                    elif col_letter == "S":  # S = Formato de moneda USD
+                        cell.number_format = usd_format
+
 def generate_columns(final_report_file, report_resumen_array, report_details_array, rotation_report_array):
     print('Generando columnas de resumen con datos de reporte final')
     # Crear DataFrames vacíos con los encabezados requeridos
@@ -102,19 +162,43 @@ def generate_columns(final_report_file, report_resumen_array, report_details_arr
         print('Generando resumen por proveedor')
         vendor_set = set(df_data['Vendor'].values)
         
+        table_positions_dict = {}
+        
         with pd.ExcelWriter(final_report_file, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
             for vendor in unique_vendor_array:
                 if vendor in vendor_set:
                     vendor_name = vendor_mapping.get(vendor, vendor)
                     vendor_df = df_data[df_data['Vendor'] == vendor]
-                    resumen_list, details_list = create_resumen_list(vendor_df, BDD_file)
-                    df_resumen = pd.DataFrame(resumen_list)
-                    df_details = pd.DataFrame(details_list)
+                    
+                    unique_brand_array = vendor_df['Brand'].dropna().unique()
+                    
+                    start_row = 1  # Fila inicial
+                    table_positions = []
+                    
+                    for brand in unique_brand_array:
+                        
+                        brand_df = vendor_df[vendor_df['Brand'] == brand]
+                        
+                        resumen_list, details_list = create_resumen_list(brand_df, BDD_file)
+                        df_resumen = pd.DataFrame(resumen_list)
+                        df_details = pd.DataFrame(details_list)
+                        
+                        end_row = start_row + max(len(df_resumen), len(df_details))  # Calcular fin de la tabla
+                        table_positions.append(((start_row+1), (end_row+1)))  # Guardar posiciones de la tabla
 
-                    df_resumen.to_excel(writer, sheet_name=vendor_name, startrow=1, startcol=1, index=False)
-                    #añadir la columna de detalles desde la fila 2 columna U
-                    df_details.to_excel(writer, sheet_name=vendor_name, startrow=1, startcol=21, index=False)
-               
+                        df_resumen.to_excel(writer, sheet_name=vendor_name, startrow=start_row, startcol=1, index=False)
+                        #añadir la columna de detalles desde la fila 2 columna
+                        df_details.to_excel(writer, sheet_name=vendor_name, startrow=start_row, startcol=20, index=False)
+                        
+                        start_row += max(len(df_resumen), len(df_details)) + 3
+                    
+                    table_positions_dict[vendor_name] = table_positions
+        
+        wb = load_workbook(final_report_file)
+        for vendor, positions in table_positions_dict.items():
+            apply_styles_to_sheet(wb, vendor, positions)
+        wb.save(final_report_file)
+        
         print(f"Resumen guardado en {final_report_file}")
 
     def create_resumen_list(vendor_df, BDD_file):
@@ -197,15 +281,15 @@ def generate_rotation_tables(final_revisionpath, aux_path):
             workbook = load_workbook(final_revisionpath)
             worksheet = workbook[sheet_name]
             max_row = worksheet.max_row
-            start_row = max_row + 2
+            start_row = max_row + 3
             workbook.close()
             
             unique_feed_index = vendor_filtered_df['Feed Index'].unique()
-            unique_brand = vendor_filtered_df['Brand'].unique()
             
             for feed_index in unique_feed_index:
                 channel_name = vendor_filtered_df.loc[vendor_filtered_df['Feed Index'] == feed_index, 'Channel'].values[0]
-                feed_index_filtered_df = vendor_filtered_df[vendor_filtered_df['Feed Index'] == feed_index]
+                feed_index_filtered_df = vendor_filtered_df[vendor_filtered_df['Feed Index'] == feed_index]          
+                feed_country_value = next(iter(vendor_filtered_df.loc[vendor_filtered_df['Feed Index'] == feed_index, 'Feed'].dropna().unique()), "")                
                 
                 table_data = []
                 
@@ -217,26 +301,18 @@ def generate_rotation_tables(final_revisionpath, aux_path):
                     
                     date_filtered_df= feed_index_filtered_df[feed_index_filtered_df['Date Time Zone'].between(start_date, end_date) & (feed_index_filtered_df['Brand'] == current_ad_brand)]
                     
-                    print(start_date, end_date)
-                    print(date_filtered_df)
-                    
                     #Filtrar el dataframe por el id rev % ads
                     relevant_ads = date_filtered_df[(date_filtered_df['Id Rev % Ads'] == id_rev) & (date_filtered_df['Final Result'] == 'Ok')]
                     
                     total_ads = date_filtered_df[date_filtered_df['Final Result'] == 'Ok']
-                    
                     
                     expected_percentage = (month_rotation_df.loc[month_rotation_df['Id Rev % Ads'] == id_rev, 'Percentage'].values[0])*100
                     real_percentage = (relevant_ads.shape[0] / total_ads.shape[0])*100 if total_ads.shape[0] > 0 else 0
                     
                     #leave only 1 decimak value on real percentage
                     real_percentage = round(real_percentage, 1)
-                    
                     diff_pp = real_percentage - expected_percentage
-                    
                     diff_pp = round(diff_pp, 1)
-                    
-                    print(f"Vendor: {vendor}, Feed Index: {feed_index}, Id Rev % Ads: {id_rev}, Real Percentage: {real_percentage}, Expected Percentage: {expected_percentage}, Diff: {diff_pp}")
                     
                     row_data = {
                         'Id Fechas Ads': fecha_ads_id,
@@ -248,7 +324,7 @@ def generate_rotation_tables(final_revisionpath, aux_path):
                         '# Ads': total_ads[(total_ads['Id Rev % Ads'] == id_rev)].shape[0],
                         '% Esperado': expected_percentage,
                         '% Real': real_percentage,
-                        'Diff p.p': (diff_pp)
+                        'Diff p.p': f"{diff_pp}pp"
                     }
                     table_data.append(row_data)
                 
@@ -256,10 +332,81 @@ def generate_rotation_tables(final_revisionpath, aux_path):
                 table_df.to_excel(writer, sheet_name=sheet_name, startrow=start_row, startcol=1, index=False)
                 
                 worksheet = writer.book[sheet_name]
-                worksheet.cell(row=start_row, column=2, value=f"{channel_name} - {feed_index}")
-                start_row += len(table_df) + 3
+                # Merge cells for title
+                worksheet.merge_cells(start_row=start_row, start_column=2, end_row=start_row, end_column=11)
+                # Aplicar formato al título (Channel Name - Feed Index)
+                title_cell = worksheet.cell(row=start_row, column=2, value=f"{channel_name} - {feed_country_value} - {feed_index}")
+                title_cell.fill = PatternFill(start_color='000000', fill_type='solid')  # Negro
+                title_cell.font = Font(color='FFFFFF', bold=True)  # Blanco y negrita
+                
+                start_row += 1
+                
+                # Aplicar formato a encabezados
+                header_fill = PatternFill(start_color='000080', fill_type='solid')  # Azul oscuro
+                header_font = Font(color='FFFFFF', bold=True)
+                for col in range(2, 12):
+                    cell = worksheet.cell(row=start_row, column=col)
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    
+                start_row += 1
+                
+                # Aplicar formato a registros
+                border = Border(bottom=Side(style='dotted', color='000000'))  # Línea divisoria punteada negra
+                
+                previous_brand = None
+                for index, row in table_df.iterrows():
+                    row_fill = PatternFill(start_color='D3D3D3' if row['Id Fechas Ads'] % 2 != 0 else 'FFFFFF', fill_type='solid')
+                    
+                    for col, value in enumerate(row, start=2):
+                        cell = worksheet.cell(row=start_row, column=col, value=value)
+                        cell.fill = row_fill
+                        cell.alignment = Alignment(horizontal='center')  # Centrar desde '# Ads'
+                    
+                    if previous_brand and previous_brand != row['Brand']:
+                        for col in range(2, 11):
+                            worksheet.cell(row=start_row - 1, column=col+1).border = border
+                    previous_brand = row['Brand']
+                    start_row += 1
+                start_row += 2
     
-    
+def set_column_widths(file_path):
+    # Abre el archivo
+    workbook = load_workbook(file_path)
+
+    # Hojas a excluir
+    excluded_sheets = {"Detalle Revision", "BDD Revision"}
+
+    # Recorre todas las hojas, excepto las excluidas
+    for sheet_name in workbook.sheetnames:
+        if sheet_name in excluded_sheets:
+            worksheet = workbook[sheet_name]
+            # Auto-adjust column width
+            for col in worksheet.columns:
+                max_length = 0
+                col_letter = col[0].column_letter  # Get column letter (A, B, C, etc.)
+
+                for cell in col:
+                    try:
+                        if cell.value:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+
+        worksheet = workbook[sheet_name]
+        
+        # Ajusta el ancho de las columnas
+        for col_idx in range(1, worksheet.max_column + 1):  
+            col_letter = get_column_letter(col_idx)
+            if col_letter in ['A', 'T']:  
+                worksheet.column_dimensions[col_letter].width = 3
+            else:
+                worksheet.column_dimensions[col_letter].width = 20
+
+    # Guarda los cambios en el archivo
+    workbook.save(file_path)
+    workbook.close()
+
 def full_report(aux_path, final_path, final_report_file):
     
     #delete exsitent final report file
@@ -270,3 +417,4 @@ def full_report(aux_path, final_path, final_report_file):
     insert_data(final_path, required_columns_data, final_report_file)
     generate_columns(final_report_file, report_resumen_array, report_datails_array, rotation_report_array)
     generate_rotation_tables(final_report_file, aux_path)
+    set_column_widths(final_report_file)

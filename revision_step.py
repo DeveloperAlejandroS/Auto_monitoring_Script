@@ -368,7 +368,8 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
         # Si no se encontró un registro válido
         if df.at[idx, 'Rev vs pauta'] == '':
             df.at[idx, 'Rev vs pauta'] = 'No'
-            df.at[idx, 'Fecha Final Revision'] = '-'
+            #asignar el valor de revision final como el valor = minutes perteneciente a la fila
+            df.at[idx, 'Fecha Final Revision'] = pd.to_datetime(df.at[idx, 'Date Time Zone = Minutes']).strftime('%m/%d/%Y %H:%M:%S')
             df.at[idx, 'Spot Observation'] = 'Spot No solicitado'
             df.at[idx, 'Rate'] = 0
             

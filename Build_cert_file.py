@@ -71,7 +71,7 @@ def get_creatives_data(excel_path, aux_path, sheet_name):
     df_main = pd.read_excel(excel_path)
     df_aux = pd.read_excel(aux_path, sheet_name=aux_sheet_name)
     side_aux_df = pd.read_excel(aux_path, sheet_name=aux_side_sheet_name)
-    threshold = 95  # Similarity threshold (91%)
+    threshold = 92  # Similarity threshold (91%)
 
     # Create a dictionary mapping lowercase to original case-sensitive values
     original_mapping = {row['Creativo'].lower(): row['Creativo'] for _, row in df_aux.iterrows()}

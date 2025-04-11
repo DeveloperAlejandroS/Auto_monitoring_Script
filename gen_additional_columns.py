@@ -5,6 +5,13 @@ import os
 
 
 def get_revision_conditions(excel_path, aux_path, sheet_name):
+    
+    """
+    Esta función obtiene las condiciones de revisión y otros datos de un archivo auxiliar y los agrega a un archivo Excel principal.
+    Se asegura de que los índices de alimentación estén en el formato correcto y agrupa los datos del archivo auxiliar por 'Feed Index'.
+    Luego, itera sobre las filas del DataFrame principal y agrega los datos correspondientes del archivo auxiliar.
+    Finalmente, escribe los resultados en el archivo Excel principal en la misma hoja.
+    """
     # Leer los datos del archivo principal y auxiliar
     df = pd.read_excel(excel_path, sheet_name=sheet_name)
     df_auxiliar = pd.read_excel(aux_path, sheet_name='Channel Info Monitoria')
@@ -66,6 +73,10 @@ def get_revision_conditions(excel_path, aux_path, sheet_name):
         df_conditions.to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=12, index=False)
     
 def get_date_rev(excel_path, sheet_name):
+    """
+    Esta función obtiene la fecha y hora de revisión de un archivo Excel y las formatea adecuadamente.
+    Luego, concatena la fecha y la hora en una nueva columna 'Date Rev' y guarda los resultados en el mismo archivo Excel.
+    """
     df = pd.read_excel(excel_path, sheet_name=sheet_name)
     
     # Asegurarse de que las columnas 'Fecha' y 'Horario' estén en el formato adecuado
@@ -80,6 +91,11 @@ def get_date_rev(excel_path, sheet_name):
         df['Date Rev'].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=17, index=False)
     
 def convert_time_zone(excel_path, aux_path, sheet_name):
+    """
+    Esta función convierte las fechas y horas de un archivo Excel a diferentes zonas horarias.
+    Utiliza un archivo auxiliar para obtener la información de las zonas horarias y aplica la conversión a cada fila del DataFrame.
+    Finalmente, guarda los resultados en el mismo archivo Excel.
+    """
     df = pd.read_excel(excel_path, sheet_name=sheet_name)
     df_aux = pd.read_excel(aux_path, sheet_name='Zona Horaria')
     
@@ -117,7 +133,11 @@ def convert_time_zone(excel_path, aux_path, sheet_name):
         df['Date Time Zone'].to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=18, index=False)
             
 def gen_DTZ_condition(excel_path, aux_path ,sheet_name):
-    
+    """
+    Esta función genera columnas adicionales en un archivo Excel basado en condiciones de revisión y zonas horarias.
+    Utiliza un archivo auxiliar para obtener información sobre los índices de alimentación y sus respectivos rangos horarios.
+    Luego, calcula y agrega columnas para las fechas y horas ajustadas según las condiciones especificadas.
+    """    
     df = pd.read_excel(excel_path, sheet_name=sheet_name)
     #Convert 'Date Rev' to datetime with format 'm/d/Y H:M:S'
     df['Date Rev'] = pd.to_datetime(df['Date Rev'], errors='coerce')
@@ -207,7 +227,7 @@ def gen_DTZ_condition(excel_path, aux_path ,sheet_name):
             elif plus_hour >= dic_daypart[row['Feed Index']]['Start - Afternoon'] and plus_hour < dic_daypart[row['Feed Index']]['End - Afternoon']:
                 df.at[inx, 'Day Part + Minutes'] = 'Afternoon'
             elif plus_hour >= dic_daypart[row['Feed Index']]['Start - Prime Time'] and plus_hour < dic_daypart[row['Feed Index']]['End - Prime Time']:
-                df.at[inx, 'Day Part + Minutes'] = 'Prime Time'
+                df.at[inx, 'Day Part + Minutes'] = 'Prime time'
             
             
     with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
@@ -223,6 +243,11 @@ def gen_DTZ_condition(excel_path, aux_path ,sheet_name):
 
 
 def copydf_to_final_path(excel_path, final_path, sheet_name):
+    """
+    Esta función copia un DataFrame de un archivo Excel a otro archivo Excel, renombrando las hojas según sea necesario.
+    Si el archivo de destino ya existe, se añade el DataFrame a la hoja especificada.
+    """
+    
     # Leer el DataFrame desde la hoja especificada
     df = pd.read_excel(excel_path, sheet_name=sheet_name)
     
@@ -255,11 +280,21 @@ def copydf_to_final_path(excel_path, final_path, sheet_name):
     wb.save(excel_path)
     
 
-def fetch_additional_columns(excel_path, aux_path, final_path, sheet_name):
-    
-    print(final_path)
+def fetch_additional_columns(excel_path, aux_path, final_path, sheet_name, log_func=None):
+
+    if log_func: log_func("🔍 Obteniendo condiciones de revisión...")
     get_revision_conditions(excel_path, aux_path, sheet_name)
+
+    if log_func: log_func("📆 Obteniendo fecha y hora de revisión...")
     get_date_rev(excel_path, sheet_name)
+
+    if log_func: log_func("🌐 Convirtiendo zonas horarias...")
     convert_time_zone(excel_path, aux_path, sheet_name)
-    gen_DTZ_condition(excel_path, aux_path ,sheet_name)
+
+    if log_func: log_func("⏱️ Generando condiciones de tiempo...")
+    gen_DTZ_condition(excel_path, aux_path, sheet_name)
+
+    if log_func: log_func("📄 Copiando DataFrame al archivo final...")
     copydf_to_final_path(excel_path, final_path, sheet_name)
+
+    if log_func: log_func("✅ Columnas adicionales agregadas correctamente.")

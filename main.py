@@ -5,6 +5,16 @@ from tkcalendar import DateEntry
 from datetime import datetime, timedelta
 import os, shutil
 import pandas as pd
+import threading
+import time
+
+#Import de librerías de terceros 
+from get_BDD import process_and_filter_data
+from fix_file_format import apply_transformations_to_excel_file
+from Build_cert_file import generar_certificado_final
+from gen_additional_columns import fetch_additional_columns
+from revision_step import full_revision
+from reporting_file import full_report
 
 #Import de funciones
 
@@ -63,22 +73,38 @@ def generate_filenames(start_date, end_date):
     end_date_year = end_date.strftime("%Y")
     month_index = f"{start_date.month:02d}"
     
-    
+    #Crear los nombres de los archivos a partir de las fechas 
     raw_pl_filename = f'Descarga PlayLogger {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
     final_data_pg_filename = f'Archivo Final PlayLogger {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
     filtered_bdd_filename = f'BDD Filtrada pauta {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
     full_bdd_path = f'G:/Unidades compartidas/Marketing Team/Offline Marketing/04. Operations/05. Orders BDD/Año {year}/{month_index}-{month_lettered}/01. Orders BDD/BDD {month_lettered} {year} v1.xlsm'
     pg_final_report_filename = f'Reporte Final PlayLogger {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
     
+    #Generar la ruta a la  carpetera de los archivos
+    resources_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {Month_dict[start_date.strftime('%B')]}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}/Recursos"
+    final_rev_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {Month_dict[start_date.strftime('%B')]}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}"
+    
+    base_file = f'{resources_path}/{raw_pl_filename}'
+    final_file = f'{final_rev_path}/{final_data_pg_filename}'
+    filtered_bdd_file = f'{resources_path}/{filtered_bdd_filename}'
+    final_report_file = f'{final_rev_path}/{pg_final_report_filename}'
+    
     if (year != end_date_year) or( month_lettered != end_month_lettered) or (start_date > end_date):
         custom_alert_trigger('DateSetError')
+        success = False
+        return success, "", "", "", "", "", "", "", "", "", "", ""
     else:
+        if not os.path.exists(resources_path):
+            os.makedirs(resources_path, exist_ok=True)
+        if not os.path.exists(final_rev_path):
+            os.makedirs(final_rev_path, exist_ok=True)
         success = True
-    
-    return success, raw_pl_filename, final_data_pg_filename, filtered_bdd_filename, full_bdd_path, pg_final_report_filename
+        return success, full_bdd_path, base_file, final_file, filtered_bdd_file, final_report_file
 
 def validate_dates(excel_path, start_date, end_date):
     
+    
+    generate_filenames(start_date, end_date)
     df = pd.read_excel(excel_path, usecols=["Fecha"], dtype={"Fecha": str})  # Solo cargar la columna "Fecha"
         
     # Reemplazar caracteres no válidos
@@ -114,13 +140,42 @@ def validate_dates(excel_path, start_date, end_date):
 
 # Función para cargar y monitorear los archivos, PRINCIPAL
 def upload_and_monitor(start_date, end_date):
+    print("Iniciando proceso de monitoreo...")
+    boton_monitorear.configure(state="disabled")
     
     # Cargar los archivos
-    
     excel_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
-    if excel_path:
-        validate_dates(excel_path, start_date, end_date)
-        success, raw_pl_filename, final_data_pg_filename, filtered_bdd_filename, full_bdd_path, pg_final_report_filename = generate_filenames(start_date, end_date, success)
+    #Evaluar si el archivo existe y no es nulo
+    if excel_path and os.path.exists(excel_path):
+        # Verificar si las fechas son válidas y están en el mismo mes y año
+        # y si el rango de días coincide con el del certificado
+        date_status = validate_dates(excel_path, start_date, end_date)
+        success, full_bdd_path, base_file, final_file, filtered_bdd_file, final_report_file = generate_filenames(start_date, end_date)
+        # Si las fechas son válidas, generar los nombres de los archivos, asi mismo se verifica si el rango de días coincide con el del certificado
+        if date_status and success:
+            sheet_name = 'Archivo Final Play Logger'
+            shutil.move(excel_path, base_file)
+            print(f"File moved to: {base_file}")
+            start_time = time.time()
+            
+            apply_transformations_to_excel_file(base_file, escribir_estado)
+            generar_certificado_final(aux_path, base_file, final_file, escribir_estado)
+            time.sleep(3)
+            fetch_additional_columns(base_file, aux_path, final_file, sheet_name, escribir_estado)
+            
+            process_and_filter_data(full_bdd_path, aux_path, base_file , filtered_bdd_file, start_date.strftime('%m/%d/%Y'), end_date.strftime('%m/%d/%Y'), escribir_estado)
+            full_revision(final_file, filtered_bdd_file, aux_path, start_date, end_date, sheet_name, escribir_estado)
+            full_report(aux_path, final_file, final_report_file, escribir_estado)
+            
+            os.startfile(final_report_file)
+            os.startfile(final_file)
+            
+            final_time = time.time() - start_time
+            escribir_estado(f"Proceso finalizado en {final_time:.2f} segundos.")
+            boton_monitorear.configure(state="normal")
+        else:
+            #Detener el proceso, no se da alerta ya que ya se dio anteriormente 
+            return
     else:
         custom_alert_trigger('NullFilepath')
     
@@ -236,8 +291,16 @@ def custom_alert_trigger(type):
 
     alert_frame.grab_set()
 
+def escribir_estado(mensaje):
+    estado_texto.configure(state="normal")
+    estado_texto.insert("end", mensaje + "\n")
+    estado_texto.see("end")  # Para hacer scroll automático al final
+    estado_texto.configure(state="disabled")
+
 # Contenedor para actualizar contenido
 def update_content(option):
+    global content_frame, boton_monitorear, estado_texto
+    
     for widget in main_frame.winfo_children():
         widget.destroy()
     
@@ -296,7 +359,7 @@ def update_content(option):
             hover_color=ORANGE_COLOR, 
             width=274, height=50, 
             font=FONT_INTER,
-            command=(lambda: generate_filenames(fecha_inicio.get_date(), fecha_fin.get_date()))
+            command=(lambda: threading.Thread(target=upload_and_monitor, args=(fecha_inicio.get_date(), fecha_fin.get_date())).start())
         )
         boton_monitorear.pack(pady=20)
         

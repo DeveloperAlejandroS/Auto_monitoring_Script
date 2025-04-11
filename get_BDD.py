@@ -31,6 +31,9 @@ def organizar_por_canal_y_fecha(df):
     return df
 
 def split_repeated_spots(df):
+    """
+    Divide los registros con 'Spots' mayores a 1 en múltiples registros con 'Spots' igual a 1.
+    """
     
      # Asegurarse de que 'Spots' es numérico
     df['Spots'] = pd.to_numeric(df['Spots'], errors='coerce')
@@ -61,53 +64,41 @@ def split_repeated_spots(df):
 
     return df
 
-def process_and_filter_data(full_bdd_path, aux_path, base_file , filtered_bdd_file, start_date, end_date):
-    """
-    Procesa los datos en el archivo bdd_path, filtra por VEN=1, agrega columnas 'Date Time Zone' y 'Date Full Day',
-    organiza los datos, y guarda el resultado en un nuevo archivo Excel.
-    """
-    df = pd.read_excel(base_file, sheet_name='Convertido y procesado')  # Saltar a partir de la fila 2
+def process_and_filter_data(full_bdd_path, aux_path, base_file, filtered_bdd_file, start_date, end_date, log_func=None):
+    """Procesa y filtra los datos de la BDD completa según el rango de fechas y el Feed Index."""
     
+    if log_func: log_func("📥 Cargando archivo base y extrayendo Feed Index...")
+    df = pd.read_excel(base_file, sheet_name='Convertido y procesado')
     unique_feed_index = df['Feed Index'].dropna().unique()
-    
-    df_bdd = pd.read_excel(full_bdd_path, sheet_name='BDD Final', skiprows=1, dtype=str)  # Saltar a partir de la fila 2
 
-    # Limpiar encabezados de columnas
+    if log_func: log_func("📥 Cargando archivo BDD completo y limpiando encabezados...")
+    df_bdd = pd.read_excel(full_bdd_path, sheet_name='BDD Final', skiprows=1, dtype=str)
     df_bdd.columns = df_bdd.columns.str.strip()
 
+    if log_func: log_func("🔍 Filtrando por Feed Index común...")
     df_bdd = df_bdd[df_bdd['Feed Index'].isin(unique_feed_index)]
 
-    #Convert string date input with format MM/DD/YYYY into date type in format MM/DD/YYYY
+    if log_func: log_func("📅 Procesando fechas para filtrado...")
     start_date = datetime.strptime(start_date, '%m/%d/%Y')
     end_date = datetime.strptime(end_date, '%m/%d/%Y')
-
-    # Convertir 'Date' a formato datetime para la comparación
     df_bdd['Date'] = pd.to_datetime(df_bdd['Date'], format='%Y-%m-%d %H:%M:%S')
-
-    # Filtrar por registros desde la fecha inicial hasta la fecha final
     df_bdd = df_bdd[(df_bdd['Date'] >= start_date) & (df_bdd['Date'] <= end_date)]
 
-    # Convertir 'Date' a formato MM/DD/YY sin la hora y 'Hour' a cadena
+    if log_func: log_func("🗂️ Formateando fechas y horas...")
     df_bdd['Date'] = pd.to_datetime(df_bdd['Date'], format='%B %d %Y').dt.strftime('%m/%d/%y')
     df_bdd['Hour'] = df_bdd['Hour'].astype(str)
-    
 
-    # Agregar columnas adicionales, ajustar spots multiples y organizar datos
+    if log_func: log_func("➕ Agregando columnas adicionales y organizando datos...")
     df_bdd = crear_columna_date_time_zone(df_bdd)
- 
     df_bdd = crear_columna_date_full_day(df_bdd)
-
     df_bdd = split_repeated_spots(df_bdd)
-
     df_bdd = organizar_por_canal_y_fecha(df_bdd)
 
-
-    # Seleccionar columnas requeridas desde la hoja Index Tablas de aux_path columna Monitoring_db_Index
+    if log_func: log_func("📊 Seleccionando columnas requeridas desde archivo auxiliar...")
     df_index = pd.read_excel(aux_path, sheet_name='Index Tablas')
-    #Extraer columna Monitoring_db_Index y convertir a lista
     columnas_requeridas = df_index['Monitoring_db_Index'].dropna().tolist()
-    
     df_bdd_filtrado = df_bdd[columnas_requeridas]
 
+    if log_func: log_func("💾 Guardando archivo filtrado...")
     df_bdd_filtrado.to_excel(filtered_bdd_file, index=False)
-    print(f"Archivo guardado en: {filtered_bdd_file}")
+    if log_func: log_func(f"✅ Archivo guardado")

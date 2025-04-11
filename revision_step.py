@@ -2,7 +2,17 @@ import pandas as pd
 from datetime import timedelta
 from openpyxl import load_workbook
 
+"""
+Funciones para realizar la revisión de archivos Excel relacionados con la publicidad y los spots.
+Estas funciones incluyen la eliminación de filas obsoletas, la revisión de "Back to back", la comparación de spots con la pauta y la revisión de creativos.
+además, se calcula el resultado final de la revisión.
+"""
+
 def delete_outdated_rows(final_path, start_date, end_date, sheet_name):
+    """
+    Elimina las filas de un archivo Excel que están fuera de un rango de fechas específico.
+    Se utiliza la columna 'Date Time Zone' para determinar si una fila está dentro del rango.
+    """
     # Leer la hoja específica del archivo Excel
     df = pd.read_excel(final_path, sheet_name=sheet_name)
 
@@ -30,10 +40,12 @@ def delete_outdated_rows(final_path, start_date, end_date, sheet_name):
         df.to_excel(writer, sheet_name=sheet_name, index=False)
 
 def remove_not_found_rows(final_path, sheet_name):
-    
+    """
+    Elimina las filas que tienen el estado 'Not Found' en la columna 'Estado' y las mueve a una nueva hoja llamada 'No encontrados'.
+    Si la hoja ya existe, se elimina y se crea una nueva.
+    """
     nf_sheet_name='No encontrados'
-    
-        
+            
     # Leer la hoja específica del archivo Excel
     df = pd.read_excel(final_path, sheet_name=sheet_name)
     #Solo si la columna Estado contiene 'Not Found' se elimina la fila, en caso de que no tenga ningun valor se pasa
@@ -43,9 +55,9 @@ def remove_not_found_rows(final_path, sheet_name):
             #Abrir con openpyxl para poder agregar hojas
             wb = load_workbook(final_path)
             #Crear una hoja nueva con el  nombre 'No encontrados'
-            if nf_sheet_name not in wb.sheetnames:
-                wb.create_sheet(title=nf_sheet_name)
-            wb.save(final_path)
+            if nf_sheet_name in wb.sheetnames:
+                wb.remove(wb[nf_sheet_name])
+            ws = wb.create_sheet(title=nf_sheet_name)
             
             # mover las filas que contienen en la columna Estado = "Not Found" a una nueva hoja llamada 'No encontrados' y dejar el final path en la hoja sheet_name sin esas filas
             not_found_df = df[df['Estado'] == 'Not Found']
@@ -61,6 +73,11 @@ def remove_not_found_rows(final_path, sheet_name):
         print('No "Estado" column found')
 
 def b2bV2(final_path, sheet_name):
+    
+    """
+    Realiza la revisión de "Back to back" en un archivo Excel específico.
+    Se basa en la columna 'Feed Index' y 'Date Time Zone' para determinar si los registros cumplen con la condición de "Back to back".
+    """
     # Leer archivo Excel y hoja
     df = pd.read_excel(final_path, sheet_name=sheet_name)
 
@@ -113,56 +130,12 @@ def b2bV2(final_path, sheet_name):
     # Guardar el DataFrame actualizado en el archivo Excel
     with pd.ExcelWriter(final_path, mode='a', engine='openpyxl', if_sheet_exists='overlay') as writer:
         df.to_excel(writer, sheet_name=sheet_name, index=False)
-
-#Old version of back to back revision
-def back_to_back_rev(final_path, sheet_name):
-    df = pd.read_excel(final_path, sheet_name=sheet_name)
-
-    #get Date Time Zone column from final_path
-    df['Date Time Zone'] = pd.to_datetime(df['Date Time Zone'])
-    
-    df['Back to back'] = ''
-    
-    df.sort_values(by=['Feed Index', 'Date Time Zone'], inplace=True)
-    
-    for i in range(len(df)):
-        if i == 0:
-            df.loc[i, 'Back to back'] = 'Ok'
-            
-        else:
-            current_feed_index = df.loc[i, 'Feed Index']
-            previous_feed_index = df.loc[i-1, 'Feed Index']
-            
-            current_date_time_zone = df.loc[i, 'Date Time Zone']
-            previous_date_time_zone = df.loc[i-1, 'Date Time Zone']
-                  
-            if pd.isna(df.loc[i,'Duracion']):
-                df.loc[i, 'Back to back'] = 'Ok'
-            else:
-                duration_seconds = timedelta(seconds=int(df.loc[i-1, 'Duracion'])) + timedelta(seconds=2)
-                      
-                if current_feed_index != previous_feed_index:
-                    df.loc[i, 'Back to back'] = 'Ok'
-                else:
-                    previous_plus_seconds = previous_date_time_zone + duration_seconds
-                    
-                    print(current_date_time_zone)
-                    print(previous_date_time_zone)
-                    print(previous_plus_seconds)
-                    
-                    if current_date_time_zone <= previous_plus_seconds:
-                        df.loc[i, 'Back to back'] = 'Back to back'
-                    else:
-                        df.loc[i, 'Back to back'] = 'Ok'
-    
-    df = df['Back to back']
-    
-    #add df to Z column in final_path, in the oly one sheet that is already there
-    with pd.ExcelWriter(final_path, mode='a', engine='openpyxl', if_sheet_exists='overlay') as writer:
-        df.to_excel(writer, sheet_name=sheet_name, startrow=0, startcol=28, index=False, header=True)
-    print('Back to back revision completed')
         
-def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):            
+def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
+    """
+    Realiza la revisión de los spots en comparación con la pauta.
+    Se basa en la columna 'Feed Index', 'Brand' y 'Date Time Zone' para determinar si los registros cumplen con la pauta.
+    """          
     # Leer los datos desde los archivos Excel
     df = pd.read_excel(final_path, sheet_name=sheet_name)
     df_bdd = pd.read_excel(filtered_bdd_path)
@@ -222,19 +195,19 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                         break
                 elif row['Revision type'] == 2:
                     # Procesamiento para "Revision type" 2
-                    current_minus_dp = row['Day Part - Minutes'].strip().lower()
-                    current_equal_dp = row['Day Part = Minutes'].strip().lower()
-                    current_plus_dp = row['Day Part + Minutes'].strip().lower()
+                    current_minus_dp = row['Day Part - Minutes']
+                    current_equal_dp = row['Day Part = Minutes']
+                    current_plus_dp = row['Day Part + Minutes']
                     
                     current_minus_full_day = pd.to_datetime(row['Full Day - Minutes'], errors='coerce')
                     current_equal_full_day = pd.to_datetime(row['Full Day = Minutes'], errors='coerce')
                     current_plus_full_day = pd.to_datetime(row['Full Day + Minutes'], errors= 'coerce')
                     
                     comparer_date_full_day = pd.to_datetime(row2['Date Full Day'], errors='coerce')
-                    comparer_day_part = row2['Franja'].strip().lower()
+                    comparer_day_part = row2['Franja']
                     current_rate = row2['Rate']
                     
-                    if current_minus_dp == comparer_day_part and current_minus_full_day == comparer_date_full_day:
+                    if  current_minus_dp.strip().lower() == row2['Franja'].strip().lower() and current_minus_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_minus_dp}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
@@ -242,14 +215,14 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
                         df.at[idx, 'Rate'] = current_rate
                         break
                     
-                    if current_equal_dp == comparer_day_part and current_equal_full_day == comparer_date_full_day:
+                    if current_equal_dp.strip().lower() == row2['Franja'].strip().lower() and current_equal_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_equal_dp}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
                         df_bdd.at[idx2, 'Spot status'] = 'Ok'
                         df.at[idx, 'Rate'] = current_rate
                         break
-                    if current_plus_dp == comparer_day_part and current_plus_full_day == comparer_date_full_day:
+                    if current_plus_dp.strip().lower() == row2['Franja'].strip().lower() and current_plus_full_day == comparer_date_full_day:
                         df.at[idx, 'Rev vs pauta'] = 'Ok'
                         df.at[idx, 'Fecha Final Revision'] = f'{current_plus_dp}'
                         df.at[idx, 'Spot Observation'] = 'Spot Correcto'
@@ -394,6 +367,10 @@ def rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name):
         df_bdd.to_excel(writer, sheet_name=sn, index=False)
 
 def rev_creatives(aux_path, final_file):
+    """
+    Realiza la revisión de los creativos en comparación con un archivo auxiliar.
+    Se basa en la columna 'Rotation Id', 'Creativo' y 'Brand' para determinar si los registros cumplen con la pauta.
+    """
     sheet_name = 'Archivo Final Play Logger'
     aux_sheet_name = 'Month_Rotation'
     
@@ -418,8 +395,6 @@ def rev_creatives(aux_path, final_file):
 
     #create a key column in the main file
     main_file['Key'] = main_file['Rotation Id'].astype(str) + '_' + main_file['Creativo'] + '_' + main_file['Brand']
-            
-    #start revision process
     
     for idx, row in main_file.iterrows():
         if row['Estado'] == 'Found':
@@ -467,6 +442,10 @@ def rev_creatives(aux_path, final_file):
         main_file.to_excel(writer, sheet_name=sheet_name, index=False)
     
 def final_result(final_path):
+    """
+    Calcula el resultado final de la revisión comparando los resultados de las revisiones de pauta y creativos.
+    Si ambos son 'Ok', el resultado es 'Ok', de lo contrario es 'No'.
+    """
     #takes revision fields and compares, if every revision is Ok the result is ok, if one of this or both are No then the value is No
     sheet_name = 'Archivo Final Play Logger'
     main_file = pd.read_excel(final_path, sheet_name=sheet_name)
@@ -482,17 +461,29 @@ def final_result(final_path):
     with pd.ExcelWriter(final_path, mode='a', engine='openpyxl', if_sheet_exists='overlay') as writer:
         main_file.to_excel(writer, sheet_name=sheet_name, index=False)
                       
-def full_revision(final_path, filtered_bdd_path, aux_path, start_date, end_date, sheet_name):
-    
+def full_revision(final_path, filtered_bdd_path, aux_path, start_date, end_date, sheet_name, log_func=None):
+    """
+    Realiza una revisión completa de los archivos de Play Logger y BDD.
+    Elimina filas obsoletas, realiza revisiones de "Back to back", "Spot" y "Creativos", y calcula el resultado final.
+    """
+    if log_func: log_func("🧹 Eliminando filas obsoletas...")
     delete_outdated_rows(final_path, start_date, end_date, sheet_name)
+
+    if log_func: log_func("🗂️ Eliminando filas no encontradas...")
     remove_not_found_rows(final_path, sheet_name)
-    print('Starting back to back revision')
+
+    if log_func: log_func("🔄 Iniciando revisión Back to Back...")
     b2bV2(final_path, sheet_name)
-    print('Back to back revision completed')
-    print('Starting Spot revision')
+    if log_func: log_func("✅ Revisión Back to Back completada")
+
+    if log_func: log_func("🔎 Iniciando revisión de Spots...")
     rev_spots_vs_pauta(final_path, filtered_bdd_path, sheet_name)
-    print('Spot revision completed')
-    print('Starting Creative revision')
+    if log_func: log_func("✅ Revisión de Spots completada")
+
+    if log_func: log_func("🎨 Iniciando revisión de Creativos...")
     rev_creatives(aux_path, final_path)
-    print('Creative revision completed')
+    if log_func: log_func("✅ Revisión de Creativos completada")
+
+    if log_func: log_func("📊 Calculando resultado final...")
     final_result(final_path)
+    if log_func: log_func("🏁 Revisión completa.")

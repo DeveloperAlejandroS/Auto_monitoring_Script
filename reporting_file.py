@@ -444,38 +444,52 @@ def generate_rotation_tables(final_revision_path, aux_path):
 def set_column_widths(file_path):
     """
     Ajusta el ancho de las columnas en el archivo Excel.
-    A las hojas no excluidas se les pone en las columnas A y T un ancho fijo de 2.
+    A las hojas no excluidas se les pone en las columnas A y T un ancho fijo de 2,
+    y se autoajustan las demás columnas.
+    A las hojas excluidas se les hace autofit general.
     """
-    # Abre el archivo
     workbook = load_workbook(file_path)
-    
     excluded_sheets = ['Detalle Revision', 'BDD Revision']
 
-    # Recorre todas las hojas del archivo
     for sheet_name in workbook.sheetnames:
         worksheet = workbook[sheet_name]
-        
+
         if sheet_name not in excluded_sheets:
-            # Establece ancho fijo de 2 para columnas A y T
             worksheet.column_dimensions['A'].width = 2
             worksheet.column_dimensions['T'].width = 2
 
-            # Auto-ajuste para otras columnas (excepto A y T)
             for column_cells in worksheet.columns:
                 col_idx = column_cells[0].column
                 col_letter = get_column_letter(col_idx)
 
                 if col_letter in ['A', 'T']:
-                    continue  # Saltar A y T porque ya las seteamos
+                    continue
 
                 max_length = 0
                 for cell in column_cells:
                     try:
-                        if cell.value:
+                        if cell.value is not None:
                             max_length = max(max_length, len(str(cell.value)))
-                    except:
+                    except Exception:
                         pass
-                adjusted_width = (max_length + 2) * 1.2
+
+                adjusted_width = (max_length + 2) * 1.2 if max_length > 0 else 8
+                worksheet.column_dimensions[col_letter].width = adjusted_width
+
+        else:
+            for column_cells in worksheet.columns:
+                col_idx = column_cells[0].column
+                col_letter = get_column_letter(col_idx)
+
+                max_length = 0
+                for cell in column_cells:
+                    try:
+                        if cell.value is not None:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except Exception:
+                        pass
+
+                adjusted_width = (max_length + 2) * 1.2 if max_length > 0 else 8
                 worksheet.column_dimensions[col_letter].width = adjusted_width
 
     # Guarda el archivo con los cambios

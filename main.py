@@ -10,8 +10,8 @@ import time
 
 #Import de librerías de terceros 
 from get_BDD import process_and_filter_data
-from fix_file_format import apply_transformations_to_excel_file
-from Build_cert_file import generar_certificado_final
+from Monitoria.fix_file_format import apply_transformations_to_excel_file
+from Monitoria.Build_cert_file import generar_certificado_final
 from gen_additional_columns import fetch_additional_columns
 from revision_step import full_revision
 from reporting_file import full_report
@@ -49,135 +49,293 @@ aux_path = 'G:/Unidades compartidas/Marketing Team/Offline Marketing/04. Operati
 resources_folder = 'G:/Unidades compartidas/Marketing Team/Offline Marketing/04. Operations/07. Monitoring'
 
 def open_aux_rules():
+    """
+    Abre la carpeta que contiene el archivo auxiliar y las reglas asociadas.
+
+    Esta función toma la ruta del archivo auxiliar (almacenada en `aux_path`), elimina la parte que
+    hace referencia al archivo y abre la carpeta contenedora para facilitar la navegación o acceso
+    a otros archivos relevantes.
+
+    Dependencias:
+    -------------
+    - `aux_path`: Variable global que contiene la ruta completa al archivo auxiliar (por ejemplo, 
+      "C:/ruta/a/BDD Auxiliar y Reglas.xlsx"). Se debe asegurar que esta ruta esté definida correctamente 
+      en el entorno del programa.
+    
+    Comportamiento:
+    ---------------
+    La función utiliza la ruta `aux_path`, reemplaza el nombre del archivo con una cadena vacía (para 
+    obtener la ruta del directorio) y luego abre la carpeta contenedora mediante el comando `os.startfile`.
+    """
+    
+    # Obtener la ruta de la carpeta contenedora del archivo auxiliar
     aux_path_container = aux_path.replace('/BDD Auxiliar y Reglas.xlsx', '')
+    
+    # Abrir la carpeta contenedora en el explorador de archivos
     os.startfile(aux_path_container)
+
 
 # Función para manejar la selección de botones en el menú
 def select_button(btn_selected, option):
-    global selected_button
+    """
+    Resalta el botón seleccionado en la interfaz gráfica y actualiza el contenido del panel principal 
+    en función de la opción seleccionada.
+
+    Esta función es útil para implementar un sistema de botones interactivos, donde cada botón 
+    cambia de color al ser seleccionado, y también puede actualizar la interfaz con un nuevo contenido 
+    relacionado con la opción correspondiente.
+
+    Parámetros:
+    ----------
+    btn_selected : customtkinter.CTkButton
+        El botón que ha sido seleccionado. Es un botón de la interfaz gráfica que cambiará su color 
+        para reflejar su estado de selección.
+
+    option : str
+        La opción que se debe cargar o actualizar en el panel principal. Este parámetro puede ser una 
+        clave que determina qué información o vista mostrar en la interfaz, como un panel de configuración, 
+        un gráfico, una lista de resultados, etc.
+
+    Dependencias:
+    -------------
+    - `selected_button`: Variable global que mantiene una referencia al último botón seleccionado.
+    - `update_content(option)`: Función que actualiza el contenido en el panel principal de la interfaz 
+      con base en la opción proporcionada.
+    - `ORANGE_COLOR`: Constante global que define el color utilizado para resaltar el botón seleccionado.
+    """
+    
+    global selected_button  # Hace referencia al botón previamente seleccionado
+    
+    # Si ya hay un botón seleccionado previamente, restaurar su color original
     if selected_button:
-        selected_button.configure(fg_color="transparent")  # Restaurar el anterior
-    btn_selected.configure(fg_color=ORANGE_COLOR)  # Resaltar el seleccionado
+        selected_button.configure(fg_color="transparent")  # Restaurar el color anterior al estado "no seleccionado"
+    
+    # Cambiar el color del botón seleccionado a un color de resaltado (naranja)
+    btn_selected.configure(fg_color=ORANGE_COLOR)
+    
+    # Actualizar la variable global que mantiene el último botón seleccionado
     selected_button = btn_selected
+    
+    # Llamar a la función que actualiza el contenido del panel principal según la opción seleccionada
     update_content(option)
+
 
 # Función para generar los nombres de los archivos a partir de las fechas
 def generate_filenames(start_date, end_date):
-    success = False
+    """
+    Genera los nombres de los archivos requeridos para el flujo de procesamiento, 
+    así como las rutas necesarias donde serán guardados.
+
+    Esta función construye dinámicamente los nombres y rutas de:
+    - El archivo Excel crudo descargado de PlayLogger
+    - El archivo final procesado
+    - La BDD filtrada para pauta
+    - El reporte final generado
+    - La BDD maestra del mes correspondiente
+
+    También asegura que las carpetas destino existen, creándolas si es necesario.
+
+    Parámetros:
+    ----------
+    start_date : datetime.date
+        Fecha de inicio del rango ingresado por el usuario.
+    end_date : datetime.date
+        Fecha de fin del rango ingresado por el usuario.
+
+    Retorna:
+    -------
+    tuple[str, str, str, str, str]
+        Una tupla con los siguientes elementos en orden:
+        - full_bdd_path: Ruta absoluta al archivo BDD maestro correspondiente al mes.
+        - base_file: Ruta completa del archivo descargado de PlayLogger que será procesado.
+        - final_file: Ruta completa del archivo final generado tras aplicar transformaciones.
+        - filtered_bdd_file: Ruta completa del archivo de BDD filtrada por fechas y pauta.
+        - final_report_file: Ruta completa del reporte final generado a partir del archivo procesado.
+
+    Dependencias externas:
+    ----------------------
+    - `resources_folder`: Ruta base definida como constante global para almacenar todos los recursos.
+    - `Month_dict`: Diccionario global que traduce nombres de meses en inglés a formato personalizado (por ejemplo, "March" -> "03. Marzo").
+
+    Estructura de carpetas generadas:
+    ---------------------------------
+    Dentro de `resources_folder`, se sigue la estructura:
+    [AÑO]/[MM]. [MES]/PlayLogger[Revision MES DD to DD YYYY]/
+        ├── Recursos/                  → Contiene: archivo base (raw), y BDD filtrada
+        └── (raíz del folder)         → Contiene: archivo final y reporte final
+    """
     
-    month_lettered = start_date.strftime("%B")
-    end_month_lettered = end_date.strftime("%B")
-    start_day_numered = start_date.strftime("%d")
-    end_day_numered = end_date.strftime("%d")
-    year = start_date.strftime("%Y")
-    end_date_year = end_date.strftime("%Y")
-    month_index = f"{start_date.month:02d}"
-    
-    #Crear los nombres de los archivos a partir de las fechas 
+    # Formatos auxiliares para nombres
+    month_lettered = start_date.strftime("%B")         # Ej: March
+    start_day_numered = start_date.strftime("%d")      # Ej: 01
+    end_day_numered = end_date.strftime("%d")          # Ej: 07
+    year = start_date.strftime("%Y")                   # Ej: 2025
+    month_index = f"{start_date.month:02d}"            # Ej: 03
+
+    # Nombres de archivos basados en fechas
     raw_pl_filename = f'Descarga PlayLogger {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
     final_data_pg_filename = f'Archivo Final PlayLogger {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
     filtered_bdd_filename = f'BDD Filtrada pauta {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
-    full_bdd_path = f'G:/Unidades compartidas/Marketing Team/Offline Marketing/04. Operations/05. Orders BDD/Año {year}/{month_index}-{month_lettered}/01. Orders BDD/BDD {month_lettered} {year} v1.xlsm'
     pg_final_report_filename = f'Reporte Final PlayLogger {month_lettered} {start_day_numered} to {end_day_numered} {year}.xlsx'
-    
-    #Generar la ruta a la  carpetera de los archivos
-    resources_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {Month_dict[start_date.strftime('%B')]}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}/Recursos"
-    final_rev_path = f"{resources_folder}/{start_date.strftime('%Y')}/{start_date.strftime("%m")}. {Month_dict[start_date.strftime('%B')]}/PlayLogger[Revision {start_date.strftime('%B')} {start_date.strftime('%d')} to {end_date.strftime('%d')} {end_date.strftime('%Y')}"
-    
+
+    # Ruta a la BDD compartida (ruta absoluta en red interna)
+    full_bdd_path = (
+        f'G:/Unidades compartidas/Marketing Team/Offline Marketing/04. Operations/05. Orders BDD/'
+        f'Año {year}/{month_index}-{month_lettered}/01. Orders BDD/BDD {month_lettered} {year} v1.xlsm'
+    )
+
+    # Rutas internas del proyecto donde se guardarán archivos procesados
+    resources_path = (
+        f"{resources_folder}/{year}/{month_index}. {Month_dict[start_date.strftime('%B')]}/"
+        f"PlayLogger[Revision {month_lettered} {start_day_numered} to {end_day_numered} {year}]/Recursos"
+    )
+
+    final_rev_path = (
+        f"{resources_folder}/{year}/{month_index}. {Month_dict[start_date.strftime('%B')]}/"
+        f"PlayLogger[Revision {month_lettered} {start_day_numered} to {end_day_numered} {year}]"
+    )
+
+    # Rutas completas de cada archivo
     base_file = f'{resources_path}/{raw_pl_filename}'
     final_file = f'{final_rev_path}/{final_data_pg_filename}'
     filtered_bdd_file = f'{resources_path}/{filtered_bdd_filename}'
     final_report_file = f'{final_rev_path}/{pg_final_report_filename}'
-    
-    if (year != end_date_year) or( month_lettered != end_month_lettered) or (start_date > end_date):
-        custom_alert_trigger('DateSetError')
-        success = False
-        return success, "", "", "", "", "", "", "", "", "", "", ""
-    else:
-        if not os.path.exists(resources_path):
-            os.makedirs(resources_path, exist_ok=True)
-        if not os.path.exists(final_rev_path):
-            os.makedirs(final_rev_path, exist_ok=True)
-        success = True
-        return success, full_bdd_path, base_file, final_file, filtered_bdd_file, final_report_file
+
+    # Crear las carpetas si no existen
+    if not os.path.exists(resources_path):
+        os.makedirs(resources_path, exist_ok=True)
+    if not os.path.exists(final_rev_path):
+        os.makedirs(final_rev_path, exist_ok=True)
+
+    return full_bdd_path, base_file, final_file, filtered_bdd_file, final_report_file
+
 
 def validate_dates(excel_path, start_date, end_date):
+    """
+    Valida la coherencia entre las fechas proporcionadas por el usuario y las fechas contenidas en el archivo Excel.
+
+    Esta función cumple con dos propósitos principales:
+    1. Validar que el rango de fechas ingresado por el usuario (start_date a end_date) sea coherente:
+        - Ambas fechas deben pertenecer al mismo mes y año.
+        - La fecha de inicio no puede ser posterior a la fecha de fin.
+    2. Validar que el archivo Excel contenga únicamente fechas dentro del rango ingresado.
+        - Se lee exclusivamente la columna "Fecha" del archivo.
+        - Se eliminan caracteres inválidos, filas vacías, y entradas que contengan la palabra "conteo".
+        - Se verifica que las fechas mínimas y máximas encontradas coincidan exactamente con el rango proporcionado.
+
+    Si cualquiera de estas validaciones falla, se muestra una alerta personalizada y se detiene el flujo principal.
+
+    Parámetros:
+    ----------
+    excel_path : str
+        Ruta completa del archivo Excel que contiene la columna "Fecha".
+    start_date : datetime.date
+        Fecha de inicio del rango a validar.
+    end_date : datetime.date
+        Fecha de fin del rango a validar.
+
+    Retorna:
+    -------
+    bool
+        True si todas las validaciones son exitosas.
+        False si ocurre algún error o si las fechas no coinciden.
+
+    Posibles errores manejados:
+    ---------------------------
+    - 'DateSetError': El rango ingresado no pertenece al mismo mes/año o está invertido.
+    - 'MissingDateColumn': La columna "Fecha" no existe o no se pudo leer.
+    - 'EmptyDateColumn': Después de limpieza, no se encontró ninguna fecha válida.
+    - 'DateMismatchError': Las fechas mínimas y máximas del archivo no coinciden con el rango ingresado.
+    """
     
-    
-    generate_filenames(start_date, end_date)
-    df = pd.read_excel(excel_path, usecols=["Fecha"], dtype={"Fecha": str})  # Solo cargar la columna "Fecha"
-        
-    # Reemplazar caracteres no válidos
-    df["Fecha"] = df["Fecha"].str.replace("\u00A0", "", regex=True)  # Eliminar U+00A0
-    
-    # Filtrar valores inválidos
-    df = df.dropna(subset=["Fecha"])  # Eliminar nulos
-    df = df[~df["Fecha"].str.contains("conteo", case=False, na=False)]  # Eliminar "conteo"
-    
-    # Convertir a formato datetime (solo fechas válidas)
+    # Validar que el rango ingresado tenga mismo mes y año, y que start <= end
+    if (start_date.month != end_date.month) or (start_date.year != end_date.year) or (start_date > end_date):
+        custom_alert_trigger('DateSetError')
+        return False
+
+    try:
+        df = pd.read_excel(excel_path, usecols=["Fecha"], dtype={"Fecha": str})  # Cargar solo columna "Fecha"
+    except Exception as e:
+        custom_alert_trigger('MissingDateColumn')
+        return False
+
+    # Limpiar datos
+    df["Fecha"] = df["Fecha"].str.replace("\u00A0", "", regex=True)  # Eliminar caracteres no visibles como NO-BREAK SPACE
+    df = df.dropna(subset=["Fecha"])  # Eliminar valores nulos
+    df = df[~df["Fecha"].str.contains("conteo", case=False, na=False)]  # Eliminar filas que contienen "conteo"
+
+    # Convertir a fechas válidas
     df["Fecha"] = pd.to_datetime(df["Fecha"], format="%d/%m/%Y", errors="coerce")
-    df = df.dropna(subset=["Fecha"])  # Eliminar filas con fechas no válidas
-    
-    # Convertir formato a "YYYY-MM-DD"
+    df = df.dropna(subset=["Fecha"])  # Eliminar conversiones fallidas
+
+    if df.empty:
+        custom_alert_trigger('EmptyDateColumn')
+        return False
+
+    # Convertir fechas a formato uniforme para comparación
     df["Fecha"] = df["Fecha"].dt.strftime("%Y-%m-%d")
-    
-    # Extraer fecha mínima y máxima
     min_date = df["Fecha"].min()
     max_date = df["Fecha"].max()
 
-    # Convertir start_date y end_date a string en formato YYYY-MM-DD para comparar
     start_date_str = start_date.strftime("%Y-%m-%d")
     end_date_str = end_date.strftime("%Y-%m-%d")
 
-    # Comparar si las fechas son diferentes a las ingresadas
+    # Validar que las fechas del archivo coincidan exactamente con las fechas ingresadas
     if (min_date != start_date_str) or (max_date != end_date_str):
         custom_alert_trigger('DateMismatchError')
-        success = False
-    else:
-        success = True
-        
-    return success
+        return False
+
+    return True
 
 # Función para cargar y monitorear los archivos, PRINCIPAL
 def upload_and_monitor(start_date, end_date):
     print("Iniciando proceso de monitoreo...")
     boton_monitorear.configure(state="disabled")
     
-    # Cargar los archivos
-    excel_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
-    #Evaluar si el archivo existe y no es nulo
-    if excel_path and os.path.exists(excel_path):
-        # Verificar si las fechas son válidas y están en el mismo mes y año
-        # y si el rango de días coincide con el del certificado
-        date_status = validate_dates(excel_path, start_date, end_date)
-        success, full_bdd_path, base_file, final_file, filtered_bdd_file, final_report_file = generate_filenames(start_date, end_date)
-        # Si las fechas son válidas, generar los nombres de los archivos, asi mismo se verifica si el rango de días coincide con el del certificado
-        if date_status and success:
-            sheet_name = 'Archivo Final Play Logger'
-            shutil.move(excel_path, base_file)
-            print(f"File moved to: {base_file}")
-            start_time = time.time()
-            
-            apply_transformations_to_excel_file(base_file, escribir_estado)
-            generar_certificado_final(aux_path, base_file, final_file, escribir_estado)
-            time.sleep(3)
-            fetch_additional_columns(base_file, aux_path, final_file, sheet_name, escribir_estado)
-            
-            process_and_filter_data(full_bdd_path, aux_path, base_file , filtered_bdd_file, start_date.strftime('%m/%d/%Y'), end_date.strftime('%m/%d/%Y'), escribir_estado)
-            full_revision(final_file, filtered_bdd_file, aux_path, start_date, end_date, sheet_name, escribir_estado)
-            full_report(aux_path, final_file, final_report_file, escribir_estado)
-            
-            os.startfile(final_report_file)
-            os.startfile(final_file)
-            
-            final_time = time.time() - start_time
-            escribir_estado(f"Proceso finalizado en {final_time:.2f} segundos.")
-            boton_monitorear.configure(state="normal")
-        else:
-            #Detener el proceso, no se da alerta ya que ya se dio anteriormente 
+    try:
+        excel_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+        
+        if not (excel_path and os.path.exists(excel_path)):
+            custom_alert_trigger('NullFilepath')
             return
-    else:
-        custom_alert_trigger('NullFilepath')
+        
+        # Validar el nombre del archivo
+        file_name = os.path.splitext(os.path.basename(excel_path))[0]
+        if file_name != "Ads_Played_Log_per_Day" and "Descarga PlayLogger" not in file_name:
+            custom_alert_trigger('NullFilepath')
+            return
+        
+        # Validar fechas y generar nombres
+        date_status = validate_dates(excel_path, start_date, end_date)
+        full_bdd_path, base_file, final_file, filtered_bdd_file, final_report_file = generate_filenames(start_date, end_date)
+        
+        if not (date_status):
+            return
+
+        sheet_name = 'Archivo Final Play Logger'
+        shutil.move(excel_path, base_file)
+        print(f"File moved to: {base_file}")
+        start_time = time.time()
+
+        apply_transformations_to_excel_file(base_file, escribir_estado)
+        generar_certificado_final(aux_path, base_file, final_file, escribir_estado)
+        time.sleep(3)
+        fetch_additional_columns(base_file, aux_path, final_file, sheet_name, escribir_estado)
+        process_and_filter_data(full_bdd_path, aux_path, base_file, filtered_bdd_file, start_date.strftime('%m/%d/%Y'), end_date.strftime('%m/%d/%Y'), escribir_estado)
+        full_revision(final_file, filtered_bdd_file, aux_path, start_date, end_date, sheet_name, escribir_estado)
+        full_report(aux_path, final_file, final_report_file, escribir_estado)
+
+        os.startfile(final_report_file)
+        os.startfile(final_file)
+
+        final_time = time.time() - start_time
+        escribir_estado(f"Proceso finalizado en {final_time:.2f} segundos.")
+    
+    except Exception as e:
+        escribir_estado(f"Error inesperado: {str(e)}")
+    
+    finally:
+        boton_monitorear.configure(state="normal")
     
 
 #==============================================================================#
